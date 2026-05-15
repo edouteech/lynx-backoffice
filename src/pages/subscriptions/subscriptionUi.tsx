@@ -1,5 +1,5 @@
-type SubscriptionStatus = 'trial' | 'active' | 'suspended' | 'cancelled'
-type CycleStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'
+type SubscriptionStatus = 'trial' | 'active' | 'suspended' | 'cancelled' | 'expired'
+type CycleStatus = 'pending' | 'paid' | 'overdue' | 'cancelled' | 'expired'
 
 export function SubscriptionStatusBadge({ status }: { status?: string | null }) {
   if (!status) return null
@@ -23,6 +23,10 @@ export function SubscriptionStatusBadge({ status }: { status?: string | null }) 
     case 'cancelled':
       bg = 'bg-gray-200 text-gray-600'
       label = 'Annulé'
+      break
+    case 'expired':
+      bg = 'bg-rose-100 text-rose-700'
+      label = 'Expiré'
       break
   }
 

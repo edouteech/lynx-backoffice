@@ -255,7 +255,8 @@ export default function SubscriptionDetailPage() {
 
   if (!sub) return null
 
-  const isTrial = sub.status === 'trial'
+  const isTrial = sub.plan?.code === 'trial'
+  const isExpired = sub.status === 'expired'
 
   // Get the next month's 1st for display
   const nextMonthFirst = (() => {
@@ -398,15 +399,18 @@ export default function SubscriptionDetailPage() {
         </header>
 
         {/* Trial banner */}
-        {isTrial && (
-          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
-            <span className="text-2xl">⏳</span>
+        {isTrial && sub.status !== 'cancelled' && (
+          <div className={`mb-6 rounded-xl border px-5 py-4 flex items-start gap-3 ${isExpired ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+            <span className="text-2xl">{isExpired ? '🚫' : '⏳'}</span>
             <div>
-              <p className="font-semibold text-amber-900">Période d'essai en cours</p>
-              <p className="mt-0.5 text-sm text-amber-700">
-                L'essai se termine le <strong>{formatDate(sub.end_date, false)}</strong>
-                . Pour créer l'abonnement annuel qui démarrera le <strong>{nextMonthFirst}</strong>, cliquez sur
-                &nbsp;<strong>Créer l'abonnement annuel</strong>.
+              <p className={`font-semibold ${isExpired ? 'text-red-900' : 'text-amber-900'}`}>
+                {isExpired ? 'Période d\'essai terminée' : 'Période d\'essai en cours'}
+              </p>
+              <p className={`mt-0.5 text-sm ${isExpired ? 'text-red-700' : 'text-amber-700'}`}>
+                {isExpired 
+                  ? `L'essai a expiré le ${formatDate(sub.end_date, false)}. Vous pouvez modifier la date de fin pour le réactiver.`
+                  : `L'essai se termine le ${formatDate(sub.end_date, false)}. Pour créer l'abonnement annuel qui démarrera le ${nextMonthFirst}, cliquez sur Créer l'abonnement annuel.`
+                }
               </p>
             </div>
           </div>
@@ -453,13 +457,15 @@ export default function SubscriptionDetailPage() {
                   <dd className="text-gray-900">
                     Du <span className="font-semibold">{formatDate(sub.start_date, false)}</span>
                     {' '}au <span className="font-semibold">{formatDate(sub.end_date, false)}</span>
-                    <button
-                      onClick={openEndDateModal}
-                      className="ml-2 inline-flex items-center justify-center h-6 w-6 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-[#3B82F6] transition-colors"
-                      title="Modifier la date de fin"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </button>
+                    {isTrial && (
+                      <button
+                        onClick={openEndDateModal}
+                        className="ml-2 inline-flex items-center justify-center h-8 w-8 rounded-lg bg-blue-100 text-[#3B82F6] hover:bg-blue-200 transition-colors"
+                        title="Modifier la date de fin"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
                   </dd>
                 </div>
                 <div className="flex flex-col">
@@ -477,11 +483,13 @@ export default function SubscriptionDetailPage() {
             </h2>
             <div className="flex flex-col items-center justify-center py-4">
               <SubscriptionStatusBadge status={sub.status} />
-              <p className="mt-4 text-center text-sm text-gray-500">
-                {sub.status === 'trial' && "Période d'essai jusqu'à la fin du mois. Aucun cycle généré."}
+              <p className="mt-4 text-center text-sm text-gray-500 px-4">
+                {isTrial && sub.status !== 'expired' && "Période d'essai. Aucun cycle généré."}
+                {isTrial && isExpired && "L'essai est terminé. L'accès est bloqué."}
                 {sub.status === 'active' && "L'abonnement est actif et les paiements sont à jour."}
                 {sub.status === 'suspended' && "L'accès est suspendu en raison d'un impayé après la période de grâce."}
                 {sub.status === 'cancelled' && "Le contrat a été annulé."}
+                {!isTrial && isExpired && "L'abonnement annuel est arrivé à son terme."}
               </p>
             </div>
           </div>
