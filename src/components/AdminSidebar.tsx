@@ -13,7 +13,7 @@ import { useAdminAuth } from '../contexts/AdminAuthContext'
 
 const nav = [
   { path: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { path: 'subscriptions', label: 'Abonnements', icon: ShieldCheck },
+  { path: 'subscriptions', label: 'Licences', icon: ShieldCheck },
   {
     path: 'organization-requests',
     label: 'Demandes d’inscription',

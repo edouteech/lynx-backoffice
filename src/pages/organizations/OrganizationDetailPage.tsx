@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Eye, Pencil, Search, Trash2, Users } from 'lucide-react'
+import { ArrowLeft, CreditCard, Eye, Pencil, Search, Trash2, Users, Calendar, CheckCircle, Clock, AlertCircle, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { apiFetch } from '../../lib/api'
+import Swal from 'sweetalert2'
 import type {
   ApiAdminUser,
   ApiOrganization,
@@ -63,6 +64,7 @@ export default function OrganizationDetailPage() {
   const [employeesLoading, setEmployeesLoading] = useState(false)
   const [employeesError, setEmployeesError] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [showCycles, setShowCycles] = useState(false)
   const orgId = Number(id)
 
   const employeeRows = useMemo(() => {
@@ -160,19 +162,28 @@ export default function OrganizationDetailPage() {
 
   async function handleDelete() {
     if (!id || !org) return
-    if (
-      !window.confirm(
-        `Supprimer l’organisation « ${org.name} » ? Cette action est définitive.`,
-      )
-    ) {
-      return
-    }
+    
+    const result = await Swal.fire({
+      title: 'Supprimer l\'organisation ?',
+      text: `Souhaitez-vous vraiment supprimer « ${org.name} » ? Cette action est irréversible.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler'
+    })
+
+    if (!result.isConfirmed) return
+
     setDeleting(true)
     setActionError(null)
     try {
       await apiFetch(`/Admin/organizations/${id}`, { method: 'DELETE' })
+      await Swal.fire('Supprimée !', 'L\'organisation a été supprimée.', 'success')
       navigate('/organizations', { replace: true })
     } catch (e) {
+      await Swal.fire('Erreur', e instanceof Error ? e.message : 'Suppression impossible.', 'error')
       setActionError(
         e instanceof Error ? e.message : 'Suppression impossible.',
       )
@@ -439,6 +450,181 @@ export default function OrganizationDetailPage() {
           </div>
         </section>
 
+        <section className={cn(layout.card)}>
+          <div className="border-b border-gray-200 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Abonnement & Cycles</h2>
+                <p className="text-sm text-gray-600">
+                  Suivi de la facturation et des périodes de validité.
+                </p>
+              </div>
+              <Link
+                to={org.subscription ? `/subscriptions/${org.subscription.id}` : `/subscriptions?q=${org.name}`}
+                className={cn(ui.button, 'px-3 py-2', ui.buttonNeutral)}
+              >
+                <CreditCard className="h-4 w-4" aria-hidden />
+                {org.subscription ? "Détails de l'abonnement" : "Gérer globalement"}
+              </Link>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {!org.subscription ? (
+              <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center">
+                <CreditCard className="mx-auto h-10 w-10 text-gray-300" />
+                <p className="mt-2 text-sm font-medium text-gray-500">Aucun abonnement trouvé pour cette organisation.</p>
+                <div className="mt-4">
+                  <Link
+                    to="/subscriptions"
+                    className={cn(ui.button, ui.buttonNeutral)}
+                  >
+                    Créer un abonnement
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Résumé de l'abonnement */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Plan actuel</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">{org.subscription.plan?.name ?? '—'}</p>
+                    <p className="text-xs text-gray-600">Code: {org.subscription.plan?.code ?? '—'}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tarif & Fréquence</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {org.subscription.custom_price} {org.currency}
+                    </p>
+                    <p className="text-xs text-gray-600 capitalize">Par {org.subscription.payment_frequency}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Statut</p>
+                    <div className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider" 
+                      style={{ 
+                        backgroundColor: 
+                          org.subscription.status === 'active' ? '#ECFDF5' : 
+                          org.subscription.status === 'trial' ? '#EFF6FF' : 
+                          org.subscription.status === 'expired' ? '#F3F4F6' :
+                          '#FEF2F2',
+                        color: 
+                          org.subscription.status === 'active' ? '#059669' : 
+                          org.subscription.status === 'trial' ? '#2563EB' : 
+                          org.subscription.status === 'expired' ? '#4B5563' :
+                          '#DC2626'
+                      }}>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", 
+                        org.subscription.status === 'active' ? 'bg-emerald-500' : 
+                        org.subscription.status === 'trial' ? 'bg-blue-500' : 
+                        org.subscription.status === 'expired' ? 'bg-gray-500' :
+                        'bg-red-500'
+                      )} />
+                      {org.subscription.status}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-600">Date de début : {new Date(org.subscription.start_date).toLocaleDateString()}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Fin de validité</p>
+                    <p className="mt-1 text-lg font-bold text-gray-900">
+                      {org.subscription.end_date ? new Date(org.subscription.end_date).toLocaleDateString() : 'Illimitée'}
+                    </p>
+                    <p className="text-xs text-gray-600">Date d'expiration prévue</p>
+                  </div>
+                </div>
+
+                {/* Liste des Cycles */}
+                <div>
+                  <button 
+                    type="button"
+                    onClick={() => setShowCycles(!showCycles)}
+                    className={cn(
+                      "mb-4 flex w-full items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm font-semibold uppercase tracking-wider transition-all",
+                      showCycles 
+                        ? "border-[#3B82F6]/30 bg-blue-50 text-[#3B82F6] shadow-sm" 
+                        : "border-gray-100 bg-gray-50/50 text-gray-500 hover:border-gray-200 hover:bg-gray-100 hover:text-gray-900"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Calendar className={cn("h-4 w-4", showCycles ? "text-[#3B82F6]" : "text-gray-400")} />
+                      Cycles de facturation
+                      <span className={cn(
+                        "ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        showCycles ? "bg-[#3B82F6] text-white" : "bg-gray-200 text-gray-600"
+                      )}>
+                        {org.subscription.cycles?.length ?? 0}
+                      </span>
+                    </div>
+                    {showCycles ? (
+                      <ChevronUp className="h-4 w-4 text-[#3B82F6]" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+
+                  {showCycles && (
+                    <div className="overflow-hidden rounded-xl border border-gray-200 transition-all">
+                      <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-50 text-gray-600">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">Période</th>
+                            <th className="px-4 py-3 font-semibold">Montant</th>
+                            <th className="px-4 py-3 font-semibold">Échéance</th>
+                            <th className="px-4 py-3 font-semibold">Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {org.subscription.cycles && org.subscription.cycles.length > 0 ? (
+                            org.subscription.cycles.map((cycle) => (
+                              <tr key={cycle.id} className="hover:bg-gray-50/50">
+                                <td className="px-4 py-3 text-gray-900">
+                                  <div className="font-medium">
+                                    Du {new Date(cycle.period_start).toLocaleDateString()}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    au {new Date(cycle.period_end).toLocaleDateString()}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 font-medium text-gray-900">
+                                  {cycle.amount} {org.currency}
+                                </td>
+                                <td className="px-4 py-3 text-gray-600">
+                                  {new Date(cycle.due_date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={cn(
+                                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+                                    cycle.status === 'paid' ? 'bg-emerald-50 text-emerald-700' :
+                                    cycle.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                                    cycle.status === 'overdue' ? 'bg-red-50 text-red-700' :
+                                    'bg-gray-50 text-gray-700'
+                                  )}>
+                                    {cycle.status === 'paid' && <CheckCircle className="h-3 w-3" />}
+                                    {cycle.status === 'pending' && <Clock className="h-3 w-3" />}
+                                    {cycle.status === 'overdue' && <AlertCircle className="h-3 w-3" />}
+                                    {cycle.status === 'cancelled' && <XCircle className="h-3 w-3" />}
+                                    <span className="capitalize">{cycle.status}</span>
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="px-4 py-8 text-center text-gray-500 italic">
+                                Aucun cycle généré pour le moment.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className={cn(layout.card, 'overflow-hidden')}>
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div>
@@ -538,6 +724,8 @@ export default function OrganizationDetailPage() {
             )}
           </div>
         </section>
+
+        
       </div>
     </div>
   )

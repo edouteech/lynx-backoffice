@@ -41,6 +41,7 @@ export type ApiOrganizationDetail = ApiOrganization & {
   address?: string | null
   logo?: string | null
   updated_at?: string
+  subscription?: ApiOrganizationSubscription | null
 }
 
 export type ApiOrgRegistrationRequest = {
@@ -80,27 +81,48 @@ export type ApiPlan = {
   id: number
   name: string
   code: string
-  price: string
-  currency: string
-  duration_days: number
-  is_active: boolean
-  features?: unknown
+  annual_price: string
+  status: string
+  created_at: string
+}
+
+export type ApiSubscriptionPayment = {
+  id: number
+  subscription_cycle_id: number
+  amount: string
+  payment_method: string | null
+  payment_status: 'success' | 'failed' | 'pending'
+  paid_at: string | null
+  transaction_reference: string | null
+  created_at: string
+}
+
+export type ApiSubscriptionCycle = {
+  id: number
+  subscription_id: number
+  period_start: string
+  period_end: string
+  due_date: string
+  grace_end_date: string
+  amount: string
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled'
+  payments?: ApiSubscriptionPayment[]
   created_at: string
 }
 
 export type ApiOrganizationSubscription = {
   id: number
-  organization_id: number
+  client_id: number
   plan_id: number
-  amount?: string | null
-  currency: string
-  starts_at: string
-  ends_at?: string | null
-  cancelled_at?: string | null
-  status: 'pending' | 'active' | 'expired' | 'cancelled'
-  payment_reference?: string | null
+  custom_price: string
+  payment_frequency: 'monthly' | 'quarterly' | 'semiannual' | 'yearly'
+  start_date: string
+  end_date: string
+  status: 'trial' | 'active' | 'suspended' | 'cancelled' | 'expired'
+  total_paid?: string | number
   created_at: string
   updated_at?: string
   organization?: ApiOrganization
   plan?: ApiPlan
+  cycles?: ApiSubscriptionCycle[]
 }

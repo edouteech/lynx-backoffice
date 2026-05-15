@@ -24,6 +24,7 @@ import { CountrySelect } from '../../components/CountrySelect'
 import { PhoneInput } from '../../components/PhoneInput'
 import { CURRENCY_OPTIONS } from '../../lib/registerFormOptions'
 import { telephoneForApi } from '../../lib/phoneValue'
+import Swal from 'sweetalert2'
 
 const ORG_EXPORT_HEADERS = [
   'Nom',
@@ -219,8 +220,10 @@ export default function OrganizationsPage() {
       }
       await load()
       closeModal()
+      await Swal.fire('Succès !', editing ? 'Organisation mise à jour.' : 'Organisation créée avec succès.', 'success')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Enregistrement impossible.')
+      await Swal.fire('Erreur', err instanceof Error ? err.message : 'Enregistrement impossible.', 'error')
     }
   }
 
@@ -249,19 +252,27 @@ export default function OrganizationsPage() {
   }
 
   async function handleDelete(row: ApiOrganization) {
-    if (
-      !window.confirm(
-        `Supprimer l’organisation « ${row.name} » ? Cette action est définitive côté API.`,
-      )
-    ) {
-      return
-    }
+    const result = await Swal.fire({
+      title: 'Supprimer l\'organisation ?',
+      text: `Souhaitez-vous vraiment supprimer « ${row.name} » ? Cette action est irréversible.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler'
+    })
+
+    if (!result.isConfirmed) return
+
     setError(null)
     try {
       await apiFetch(`/Admin/organizations/${row.id}`, { method: 'DELETE' })
       await load()
+      await Swal.fire('Supprimée !', 'L\'organisation a été supprimée.', 'success')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Suppression impossible.')
+      await Swal.fire('Erreur', e instanceof Error ? e.message : 'Suppression impossible.', 'error')
     }
   }
 

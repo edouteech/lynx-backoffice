@@ -4,6 +4,7 @@ import { Check, Eye, Search, X } from 'lucide-react'
 import TableExportButton from '../../components/TableExportButton'
 import type { ExportCell } from '../../lib/tableExport'
 import { apiFetch } from '../../lib/api'
+import Swal from 'sweetalert2'
 import type {
   ApiOrgRegistrationRequest,
   LaravelPaginator,
@@ -70,7 +71,19 @@ export default function OrganizationRequestsPage() {
   }, [filtered])
 
   async function handleApprove(id: number) {
-    if (!window.confirm('Approuver cette demande et créer le compte ?')) return
+    const result = await Swal.fire({
+      title: 'Approuver la demande ?',
+      text: 'Un essai gratuit sera automatiquement activé.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#10B981',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, approuver',
+      cancelButtonText: 'Annuler'
+    })
+
+    if (!result.isConfirmed) return
+
     setBusyId(id)
     setError(null)
     try {
@@ -78,25 +91,39 @@ export default function OrganizationRequestsPage() {
         method: 'POST',
       })
       await load()
+      await Swal.fire('Approuvée !', 'L\'organisation a été créée.', 'success')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Approbation impossible.')
+      await Swal.fire('Erreur', e instanceof Error ? e.message : 'Approbation impossible.', 'error')
     } finally {
       setBusyId(null)
     }
   }
 
   async function handleReject(id: number) {
-    const reason = window.prompt('Motif du refus (optionnel) :') ?? ''
+    const { value: reason, isConfirmed } = await Swal.fire({
+      title: 'Refuser la demande',
+      input: 'textarea',
+      inputLabel: 'Motif du refus (optionnel)',
+      inputPlaceholder: 'Indiquez la raison du refus ici...',
+      showCancelButton: true,
+      confirmButtonText: 'Refuser',
+      cancelButtonText: 'Annuler',
+      confirmButtonColor: '#EF4444',
+    })
+
+    if (!isConfirmed) return
+
     setBusyId(id)
     setError(null)
     try {
       await apiFetch(`/Admin/organization-registration-requests/${id}/reject`, {
         method: 'POST',
-        json: { rejection_reason: reason.trim() || null },
+        json: { rejection_reason: reason?.trim() || null },
       })
       await load()
+      await Swal.fire('Refusée', 'La demande a été rejetée.', 'info')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Refus impossible.')
+      await Swal.fire('Erreur', e instanceof Error ? e.message : 'Refus impossible.', 'error')
     } finally {
       setBusyId(null)
     }

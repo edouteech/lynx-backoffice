@@ -6,6 +6,7 @@ import TableExportButton from '../../components/TableExportButton'
 import { apiFetch } from '../../lib/api'
 import type { ApiOrganizationSubscription, ApiOrganization, ApiPlan, LaravelPaginator } from '../../types/apiAdmin'
 import { SubscriptionStatusBadge, formatDate } from './subscriptionUi'
+import Swal from 'sweetalert2'
 
 export default function SubscriptionsPage() {
   const [rows, setRows] = useState<ApiOrganizationSubscription[]>([])
@@ -21,6 +22,9 @@ export default function SubscriptionsPage() {
   
   const [orgId, setOrgId] = useState('')
   const [planId, setPlanId] = useState('')
+  const [customPrice, setCustomPrice] = useState('')
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'semiannual' | 'yearly'>('monthly')
+  const [startDate, setStartDate] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async () => {
@@ -53,7 +57,9 @@ export default function SubscriptionsPage() {
         apiFetch<any>('/plans?per_page=100')
       ])
       setOrganizations(orgsRes.data ?? [])
-      setPlans(Array.isArray(plansRes) ? plansRes : (plansRes.data ?? []))
+      const allPlans = Array.isArray(plansRes) ? plansRes : (plansRes.data ?? [])
+      // On ne permet pas de souscrire manuellement au plan "Trial" (essai)
+      setPlans(allPlans.filter((p: ApiPlan) => p.code !== 'trial'))
       setDepsLoaded(true)
     } catch (e) {
       console.error(e)
@@ -77,12 +83,13 @@ export default function SubscriptionsPage() {
   const exportRows = useMemo(() => {
     return filtered.map((r) => [
       r.id.toString(),
-      r.organization?.name ?? `ID: ${r.organization_id}`,
+      r.organization?.name ?? `ID: ${r.client_id}`,
       r.plan?.name ?? `ID: ${r.plan_id}`,
-      r.amount?.toString() ?? '',
-      r.currency ?? '',
-      r.starts_at ? formatDate(r.starts_at) : '',
-      r.ends_at ? formatDate(r.ends_at) : '',
+      r.custom_price?.toString() ?? '',
+      r.total_paid?.toString() ?? '0',
+      'XOF',
+      r.start_date ? formatDate(r.start_date, false) : '',
+      r.end_date ? formatDate(r.end_date, false) : '',
       r.status,
     ])
   }, [filtered])
@@ -93,6 +100,9 @@ export default function SubscriptionsPage() {
     }
     setOrgId('')
     setPlanId('')
+    setCustomPrice('')
+    setFrequency('monthly')
+    setStartDate('')
     setModalOpen(true)
   }
 
@@ -113,8 +123,11 @@ export default function SubscriptionsPage() {
       await apiFetch<ApiOrganizationSubscription>('/Admin/subscriptions', {
         method: 'POST',
         json: {
-          organization_id: Number(orgId),
+          client_id: Number(orgId),
           plan_id: Number(planId),
+          payment_frequency: frequency,
+          start_date: startDate || undefined,
+          ...(customPrice !== '' ? { custom_price: Number(customPrice) } : {}),
         },
       })
       await load()
@@ -127,24 +140,48 @@ export default function SubscriptionsPage() {
   }
 
   async function handleForceExpire(id: number) {
-    if (!window.confirm("Êtes-vous sûr de vouloir forcer l'expiration de cet abonnement immédiatement ?")) return
+    const result = await Swal.fire({
+      title: "Confirmer l'expiration",
+      text: "Êtes-vous sûr de vouloir forcer l'expiration de cet abonnement immédiatement ?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, expirer',
+      cancelButtonText: 'Annuler'
+    })
+
+    if (!result.isConfirmed) return
     
     try {
       await apiFetch(`/Admin/subscriptions/${id}/expire`, { method: 'POST' })
       await load()
+      await Swal.fire('Expiré !', 'L\'abonnement a été expiré.', 'success')
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de l'expiration")
+      await Swal.fire('Erreur', err instanceof Error ? err.message : "Erreur lors de l'expiration", 'error')
     }
   }
 
   async function handleDelete(id: number) {
-    if (!window.confirm("Ceci va supprimer définitivement l'historique de cet abonnement. Confirmer ?")) return
+    const result = await Swal.fire({
+      title: 'Suppression définitive',
+      text: "Ceci va supprimer définitivement l'historique de cet abonnement. Confirmer ?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler'
+    })
+
+    if (!result.isConfirmed) return
     
     try {
       await apiFetch(`/Admin/subscriptions/${id}`, { method: 'DELETE' })
       await load()
+      await Swal.fire('Supprimé !', 'L\'abonnement a été supprimé.', 'success')
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Erreur lors de la suppression")
+      await Swal.fire('Erreur', err instanceof Error ? err.message : "Erreur lors de la suppression", 'error')
     }
   }
 
@@ -193,7 +230,7 @@ export default function SubscriptionsPage() {
           <TableExportButton
             filename="abonnements"
             title="Abonnements"
-            headers={['ID', 'Organisation', 'Plan', 'Montant', 'Devise', 'Début', 'Fin', 'Statut']}
+            headers={['ID', 'Organisation', 'Plan', 'Montant', 'Payé', 'Devise', 'Début', 'Fin', 'Statut']}
             rows={exportRows}
           />
         </div>
@@ -208,6 +245,7 @@ export default function SubscriptionsPage() {
                   <th className="px-6 py-3 font-semibold">Organisation</th>
                   <th className="px-6 py-3 font-semibold">Plan</th>
                   <th className="px-6 py-3 font-semibold">Montant</th>
+                  <th className="px-6 py-3 font-semibold">Montant payé</th>
                   <th className="px-6 py-3 font-semibold">Période</th>
                   <th className="px-6 py-3 font-semibold">Statut</th>
                   <th className="px-6 py-3 text-right font-semibold">Actions</th>
@@ -217,7 +255,7 @@ export default function SubscriptionsPage() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-6 py-10 text-center text-gray-500"
                     >
                       {rows.length === 0
@@ -235,21 +273,25 @@ export default function SubscriptionsPage() {
                     >
                       <td className="px-6 py-4 font-medium text-gray-900">
                         <Link
-                          to={`/organizations/${r.organization_id}`}
+                          to={`/organizations/${r.client_id}`}
                           className="text-[#3B82F6] hover:underline"
                         >
-                          {r.organization?.name ?? `Org #${r.organization_id}`}
+                          {r.organization?.name ?? `Org #${r.client_id}`}
                         </Link>
                       </td>
                       <td className="px-6 py-4 text-gray-700">
-                        {r.plan?.name ?? `Plan #${r.plan_id}`}
+                        <div>{r.plan?.name ?? `Plan #${r.plan_id}`}</div>
+                        <div className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">{r.payment_frequency}</div>
                       </td>
                       <td className="px-6 py-4 text-gray-700">
-                        {r.amount} {r.currency}
+                        {Number(r.custom_price).toLocaleString()} XOF
+                      </td>
+                      <td className="px-6 py-4 text-emerald-600 font-bold">
+                        {Number(r.total_paid ?? 0).toLocaleString()} XOF
                       </td>
                       <td className="px-6 py-4 text-gray-700">
-                        <div className="text-xs">Du {formatDate(r.starts_at)}</div>
-                        <div className="text-xs">Au {formatDate(r.ends_at)}</div>
+                        <div className="text-xs">Du {formatDate(r.start_date, false)}</div>
+                        <div className="text-xs">Au {formatDate(r.end_date, false)}</div>
                       </td>
                       <td className="px-6 py-4">
                         <SubscriptionStatusBadge status={r.status} />
@@ -297,6 +339,7 @@ export default function SubscriptionsPage() {
         open={modalOpen}
         title="Nouvel abonnement"
         onClose={closeModal}
+        wide
         footer={
           <div className="flex justify-end gap-2">
             <button
@@ -320,54 +363,129 @@ export default function SubscriptionsPage() {
         }
       >
         <form id="sub-form" onSubmit={(e) => void handleSave(e)} className="space-y-6">
-          <p className="text-sm text-gray-600">
-            Ajouter un abonnement pour une organisation. Si un abonnement est déjà en cours, le nouveau s'ajoutera à la suite sans couper l'abonnement actuel.
-          </p>
-          
-          <div>
-            <label
-              htmlFor="sub-org"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Organisation <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="sub-org"
-              required
-              value={orgId}
-              onChange={(e) => setOrgId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
-            >
-              <option value="">Sélectionnez une organisation...</option>
-              {organizations.map((org) => (
-                <option key={org.id} value={org.id}>
-                  {org.name}
-                </option>
-              ))}
-            </select>
+          <div className="rounded-lg border border-[#3B82F6]/20 bg-[#EFF6FF] px-4 py-3">
+            <p className="text-sm font-medium text-[#1E3A5F]">
+              📋 Contrat annuel — {startDate ? `démarrage le ${formatDate(startDate, false)}` : 'démarrage par défaut (1er du mois suivant)'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              Les cycles de paiement seront générés automatiquement selon la fréquence choisie.
+            </p>
           </div>
+          
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="sub-org"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Organisation <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="sub-org"
+                required
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+              >
+                <option value="">Sélectionnez une organisation...</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label
-              htmlFor="sub-plan"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Plan <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="sub-plan"
-              required
-              value={planId}
-              onChange={(e) => setPlanId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
-            >
-              <option value="">Sélectionnez un plan...</option>
-              {plans.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} - {p.price} {p.currency}
-                </option>
-              ))}
-            </select>
+            <div>
+              <label
+                htmlFor="sub-plan"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Plan <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="sub-plan"
+                required
+                value={planId}
+                onChange={(e) => {
+                  const id = e.target.value
+                  setPlanId(id)
+                  const plan = plans.find((p) => String(p.id) === id)
+                  setCustomPrice(plan ? plan.annual_price : '')
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+              >
+                <option value="">Sélectionnez un plan...</option>
+                {plans.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {Number(p.annual_price).toLocaleString()} XOF/an
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sub-price"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Montant annuel (XOF)
+                <span className="ml-2 text-xs font-normal text-gray-400">personnalisable</span>
+              </label>
+              <input
+                id="sub-price"
+                type="number"
+                min={0}
+                step={1000}
+                placeholder="Ex : 120000"
+                value={customPrice}
+                onChange={(e) => setCustomPrice(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Laissez le tarif du plan si aucune négociation.
+              </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="sub-freq"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Fréquence de paiement <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="sub-freq"
+                required
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value as 'monthly' | 'quarterly' | 'semiannual' | 'yearly')}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+              >
+                <option value="monthly">Mensuel (12 cycles)</option>
+                <option value="quarterly">Trimestriel (4 cycles)</option>
+                <option value="semiannual">Semestriel (2 cycles)</option>
+                <option value="yearly">Annuel (1 cycle)</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label
+                htmlFor="sub-start-date"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
+                Date de début <span className="text-gray-400 font-normal ml-1">(Optionnel)</span>
+              </label>
+              <input
+                id="sub-start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-[#3B82F6] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Si vide, l'abonnement commencera par défaut le 1er du mois suivant.
+              </p>
+            </div>
           </div>
         </form>
       </AdminModal>
