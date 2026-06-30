@@ -5,6 +5,7 @@ import { apiFetch } from '../../lib/api'
 import Swal from 'sweetalert2'
 import type {
   ApiAdminUser,
+  ApiGeneralSettings,
   ApiOrganization,
   ApiOrganizationDetail,
   LaravelPaginator,
@@ -59,6 +60,7 @@ export default function OrganizationDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [toggling, setToggling] = useState(false)
+  const [togglingWhatsApp, setTogglingWhatsApp] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [employees, setEmployees] = useState<ApiAdminUser[]>([])
   const [employeesLoading, setEmployeesLoading] = useState(false)
@@ -157,6 +159,26 @@ export default function OrganizationDetailPage() {
       )
     } finally {
       setToggling(false)
+    }
+  }
+
+  async function handleToggleWhatsApp() {
+    if (!id || !org) return
+    const next = !(org.general_settings?.whatsapp_notifications ?? false)
+    setTogglingWhatsApp(true)
+    setActionError(null)
+    try {
+      const updated = await apiFetch<ApiGeneralSettings>(
+        `/Admin/organizations/${id}/settings`,
+        { method: 'PATCH', json: { whatsapp_notifications: next } },
+      )
+      setOrg((prev) => (prev ? { ...prev, general_settings: updated } : prev))
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : 'Mise à jour WhatsApp impossible.',
+      )
+    } finally {
+      setTogglingWhatsApp(false)
     }
   }
 
@@ -275,6 +297,14 @@ export default function OrganizationDetailPage() {
               isActive={active}
               disabled={toggling}
               onToggle={() => void handleToggleActive()}
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <span className="text-sm text-gray-600">WhatsApp</span>
+            <OrgActiveSwitch
+              isActive={org.general_settings?.whatsapp_notifications ?? false}
+              disabled={togglingWhatsApp}
+              onToggle={() => void handleToggleWhatsApp()}
             />
           </div>
           <button

@@ -1,5 +1,9 @@
 /** Réponses Laravel (snake_case) utilisées par le back-office admin. */
 
+export type ApiGeneralSettings = {
+  whatsapp_notifications: boolean
+}
+
 export type ApiPlatformRole = {
   id: number
   slug: string
@@ -41,6 +45,7 @@ export type ApiOrganizationDetail = ApiOrganization & {
   address?: string | null
   logo?: string | null
   updated_at?: string
+  general_settings?: ApiGeneralSettings | null
   subscription?: ApiOrganizationSubscription | null
 }
 
