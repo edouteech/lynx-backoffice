@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { type ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 export default function AdminModal({
   open,
@@ -17,34 +17,49 @@ export default function AdminModal({
   /** Formulaire large (ex. organisation sur deux colonnes). */
   wide?: boolean
 }) {
+  useEffect(() => {
+    if (!open) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[1px]">
       <div
-        className={`flex max-h-[90vh] w-full flex-col rounded-2xl bg-white shadow-2xl ${wide ? 'max-w-4xl' : 'max-w-lg'}`}
+        className={`flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl ${wide ? 'max-w-4xl' : 'max-w-lg'}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-modal-title"
       >
-        <div className="shrink-0 border-b border-gray-200 px-6 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <h2
-              id="admin-modal-title"
-              className="text-lg font-semibold text-gray-900"
-            >
-              {title}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
-              aria-label="Fermer la fenêtre"
-            >
-              <X className="h-4 w-4 shrink-0" aria-hidden />
-              Fermer
-            </button>
-          </div>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 bg-gradient-to-r from-[#0F2E4A] to-[#1e4a6e] px-6 py-4 text-white">
+          <h2
+            id="admin-modal-title"
+            className="text-lg font-semibold"
+          >
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-white/90 hover:bg-white/10"
+            aria-label="Fermer la fenêtre"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
         {footer ? (

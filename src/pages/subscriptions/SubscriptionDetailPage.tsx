@@ -12,6 +12,7 @@ import type {
 } from '../../types/apiAdmin'
 import { SubscriptionStatusBadge, CycleStatusBadge, formatDate } from './subscriptionUi'
 import AdminModal from '../../components/AdminModal'
+import AdminPageHeader from '../../components/AdminPageHeader'
 import Swal from 'sweetalert2'
 
 export default function SubscriptionDetailPage() {
@@ -239,17 +240,13 @@ export default function SubscriptionDetailPage() {
 
   if (loading && !sub) {
     return (
-      <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] p-8">
-        <div className="text-center text-gray-500 mt-12">Chargement…</div>
-      </div>
+      <div className="text-center text-gray-500 mt-12">Chargement…</div>
     )
   }
 
   if (error && !sub) {
     return (
-      <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] p-8">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">{error}</div>
-      </div>
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">{error}</div>
     )
   }
 
@@ -364,39 +361,40 @@ export default function SubscriptionDetailPage() {
       </AdminModal>
 
       {/* ── Page ────────────────────────────────────────────────── */}
-      <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] p-8">
+      <div>
         <Link to="/subscriptions"
           className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-[#3B82F6] hover:underline">
           <ArrowLeft className="h-4 w-4" /> Retour aux abonnements
         </Link>
 
-        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-3">
+        <AdminPageHeader
+          title={
+            <>
               Abonnement
               <SubscriptionStatusBadge status={sub.status} />
-            </h1>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {isTrial && (
-              <button onClick={openActivateModal} disabled={actionLoading}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50">
-                <Rocket className="h-4 w-4" /> Créer l'abonnement annuel
+            </>
+          }
+          action={
+            <div className="flex flex-wrap gap-2">
+              {isTrial && (
+                <button onClick={openActivateModal} disabled={actionLoading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50">
+                  <Rocket className="h-4 w-4" /> Créer l'abonnement annuel
+                </button>
+              )}
+              {sub.status === 'active' && (
+                <button onClick={() => void handleForceExpire()} disabled={actionLoading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-200 disabled:opacity-50">
+                  <CalendarX2 className="h-4 w-4" /> Forcer l'expiration
+                </button>
+              )}
+              <button onClick={() => void handleDelete()} disabled={actionLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200 disabled:opacity-50">
+                <Trash2 className="h-4 w-4" /> Supprimer
               </button>
-            )}
-            {sub.status === 'active' && (
-              <button onClick={() => void handleForceExpire()} disabled={actionLoading}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-200 disabled:opacity-50">
-                <CalendarX2 className="h-4 w-4" /> Forcer l'expiration
-              </button>
-            )}
-            <button onClick={() => void handleDelete()} disabled={actionLoading}
-              className="inline-flex items-center gap-2 rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200 disabled:opacity-50">
-              <Trash2 className="h-4 w-4" /> Supprimer
-            </button>
-          </div>
-        </header>
+            </div>
+          }
+        />
 
         {/* Trial banner */}
         {isTrial && sub.status !== 'cancelled' && (

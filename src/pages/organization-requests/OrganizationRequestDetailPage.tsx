@@ -107,16 +107,12 @@ export default function OrganizationRequestDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] px-6 py-10 lg:px-10">
-        <p className="text-gray-600">Chargement…</p>
-      </div>
-    )
+    return <p className="text-gray-600">Chargement…</p>
   }
 
   if (error || !row) {
     return (
-      <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] px-6 py-10 lg:px-10">
+      <div>
         <Link to="/organization-requests" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-[#3B82F6] hover:text-[#2563EB]">
           <ArrowLeft className="h-4 w-4" /> Retour à la liste
         </Link>
@@ -130,7 +126,7 @@ export default function OrganizationRequestDetailPage() {
   const pending = row.status === 'pending'
 
   return (
-    <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] px-6 py-10 lg:px-10">
+    <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <Link to="/organization-requests" className="inline-flex items-center gap-2 text-sm font-medium text-[#3B82F6] hover:text-[#2563EB]">
           <ArrowLeft className="h-4 w-4" /> Demandes d'inscription

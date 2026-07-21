@@ -1,12 +1,14 @@
 import { LogOut, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import AdminSidebar from './AdminSidebar'
+import AdminNavbar from './AdminNavbar'
 import { useAdminAuth } from '../contexts/AdminAuthContext'
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { logout } = useAdminAuth()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -19,17 +21,36 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
-      <div className="flex flex-1">
-        <AdminSidebar onLogoutClick={() => setShowLogoutConfirm(true)} />
-        <div className="flex flex-1 flex-col">
+    <div className="flex w-full min-h-screen bg-[#EFF6FF]">
+      {/* Sidebar - Desktop always visible, Mobile toggleable */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <AdminSidebar />
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col lg:ml-64 min-w-0 overflow-x-hidden">
+        <AdminNavbar
+          onLogoutClick={() => setShowLogoutConfirm(true)}
+          onMenuClick={() => setIsSidebarOpen(true)}
+        />
+
+        <main className="flex-1 w-full px-4 py-6 lg:px-8 lg:py-8">
           {children}
-          <footer className="ml-64 mt-auto border-t border-gray-200 bg-white px-6 py-3">
-            <div className="text-center text-sm text-gray-600">
-              Lynx — administration
-            </div>
-          </footer>
-        </div>
+        </main>
+
+        <footer className="border-t border-gray-200 bg-white px-6 py-3">
+          <div className="text-center text-sm text-gray-600">
+            Lynx — administration
+          </div>
+        </footer>
       </div>
 
       {showLogoutConfirm && (

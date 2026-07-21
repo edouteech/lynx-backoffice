@@ -11,20 +11,7 @@ import type {
   LaravelPaginator,
 } from '../../types/apiAdmin'
 import { formatCreatedAt, orgIsActive, OrgActiveSwitch } from './organizationUi'
-
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(' ')
-}
-
-const layout = {
-  page: 'ml-64 min-h-screen flex-1 bg-gradient-to-b from-[#EFF6FF] to-white px-6 py-10 lg:px-10',
-  container: 'w-full max-w-none space-y-6',
-  card: 'rounded-xl border border-gray-200 bg-white shadow-sm',
-  cardPad: 'p-6',
-  subtle: 'text-sm text-gray-600',
-  title: 'truncate text-2xl font-semibold text-gray-900',
-  sectionLabel: 'text-sm font-semibold uppercase tracking-wide text-gray-500',
-}
+import { cn, cardUi } from '../../lib/pageLayout'
 
 const ui = {
   button:
@@ -216,14 +203,14 @@ export default function OrganizationDetailPage() {
 
   if (loading) {
     return (
-      <div className={layout.page}>
-        <div className={layout.container}>
+      <div>
+        <div className={cardUi.container}>
           <div className="flex items-center justify-between gap-3">
             <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
             <div className="h-9 w-64 animate-pulse rounded-lg bg-gray-200" />
           </div>
 
-          <div className={cn(layout.card, layout.cardPad)}>
+          <div className={cn(cardUi.card, cardUi.cardPad)}>
             <div className="space-y-3">
               <div className="h-7 w-72 animate-pulse rounded bg-gray-200" />
               <div className="h-4 w-60 animate-pulse rounded bg-gray-100" />
@@ -236,7 +223,7 @@ export default function OrganizationDetailPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <div className={cn(layout.card, layout.cardPad, 'lg:col-span-2')}>
+            <div className={cn(cardUi.card, cardUi.cardPad, 'lg:col-span-2')}>
               <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
               <div className="mt-4 grid gap-5 sm:grid-cols-2">
                 <div className="h-12 animate-pulse rounded bg-gray-100" />
@@ -245,7 +232,7 @@ export default function OrganizationDetailPage() {
                 <div className="h-12 animate-pulse rounded bg-gray-100" />
               </div>
             </div>
-            <div className={cn(layout.card, layout.cardPad)}>
+            <div className={cn(cardUi.card, cardUi.cardPad)}>
               <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
               <div className="mt-4 space-y-2">
                 <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
@@ -260,7 +247,7 @@ export default function OrganizationDetailPage() {
 
   if (!org) {
     return (
-      <div className={layout.page}>
+      <div>
         <Link
           to="/organizations"
           className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-[#3B82F6] hover:text-[#2563EB]"
@@ -281,7 +268,7 @@ export default function OrganizationDetailPage() {
   const active = orgIsActive(org)
 
   return (
-    <div className={layout.page}>
+    <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/organizations"
@@ -340,11 +327,11 @@ export default function OrganizationDetailPage() {
         </div>
       )}
 
-      <div className={layout.container}>
-        <section className={cn(layout.card, layout.cardPad)}>
+      <div className={cardUi.container}>
+        <section className={cn(cardUi.card, cardUi.cardPad)}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <h1 className={layout.title}>{org.name}</h1>
+              <h1 className={cardUi.title}>{org.name}</h1>
             </div>
 
             <div className="grid gap-2 sm:grid-cols-3 lg:max-w-xl lg:grid-cols-3">
@@ -386,8 +373,8 @@ export default function OrganizationDetailPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-3">
-          <div className={cn(layout.card, layout.cardPad, 'lg:col-span-2')}>
-            <h2 className={layout.sectionLabel}>Informations</h2>
+          <div className={cn(cardUi.card, cardUi.cardPad, 'lg:col-span-2')}>
+            <h2 className={cardUi.sectionLabel}>Informations</h2>
             <dl className="mt-4 grid gap-5 sm:grid-cols-2">
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -458,8 +445,8 @@ export default function OrganizationDetailPage() {
             </dl>
           </div>
 
-          <div className={cn(layout.card, layout.cardPad)}>
-            <h2 className={layout.sectionLabel}>Propriétaire</h2>
+          <div className={cn(cardUi.card, cardUi.cardPad)}>
+            <h2 className={cardUi.sectionLabel}>Propriétaire</h2>
             <div className="mt-4 space-y-3">
               <div>
                 <p className="text-sm font-medium text-gray-900">
@@ -480,7 +467,7 @@ export default function OrganizationDetailPage() {
           </div>
         </section>
 
-        <section className={cn(layout.card)}>
+        <section className={cn(cardUi.card)}>
           <div className="border-b border-gray-200 p-6">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -595,18 +582,18 @@ export default function OrganizationDetailPage() {
                   {showCycles && (
                     <div className="overflow-hidden rounded-xl border border-gray-200 transition-all">
                       <table className="w-full text-left text-sm">
-                        <thead className="bg-gray-50 text-gray-600">
+                        <thead className="border-b border-gray-200 bg-gray-50">
                           <tr>
-                            <th className="px-4 py-3 font-semibold">Période</th>
-                            <th className="px-4 py-3 font-semibold">Montant</th>
-                            <th className="px-4 py-3 font-semibold">Échéance</th>
-                            <th className="px-4 py-3 font-semibold">Statut</th>
+                            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Période</th>
+                            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Montant</th>
+                            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Échéance</th>
+                            <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Statut</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {org.subscription.cycles && org.subscription.cycles.length > 0 ? (
                             org.subscription.cycles.map((cycle) => (
-                              <tr key={cycle.id} className="hover:bg-gray-50/50">
+                              <tr key={cycle.id} className="transition-colors hover:bg-gray-50/80">
                                 <td className="px-4 py-3 text-gray-900">
                                   <div className="font-medium">
                                     Du {new Date(cycle.period_start).toLocaleDateString()}
@@ -655,7 +642,7 @@ export default function OrganizationDetailPage() {
           </div>
         </section>
 
-        <section className={cn(layout.card, 'overflow-hidden')}>
+        <section className={cn(cardUi.card, 'overflow-hidden')}>
           <div className="flex flex-col gap-3 border-b border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Équipe</h2>
@@ -692,11 +679,11 @@ export default function OrganizationDetailPage() {
             ) : (
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
-                    <th className="px-6 py-3 font-semibold">Nom</th>
-                    <th className="px-6 py-3 font-semibold">E-mail</th>
-                    <th className="px-6 py-3 font-semibold">Rôle</th>
-                    <th className="px-6 py-3 text-right font-semibold">Détail</th>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Nom</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">E-mail</th>
+                    <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Rôle</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600">Détail</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -712,13 +699,10 @@ export default function OrganizationDetailPage() {
                       </td>
                     </tr>
                   ) : (
-                    employeeRows.map(({ u, m }, idx) => (
+                    employeeRows.map(({ u, m }) => (
                       <tr
                         key={u.id}
-                        className={cn(
-                          'border-b border-gray-100 last:border-0 hover:bg-gray-50',
-                          idx % 2 === 1 && 'bg-gray-50/40',
-                        )}
+                        className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50/80"
                       >
                         <td className="px-6 py-4 font-medium text-gray-900">
                           <Link

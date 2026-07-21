@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Building2, ClipboardList, Users } from 'lucide-react'
+import AdminPageHeader from '../../components/AdminPageHeader'
 import { apiFetch } from '../../lib/api'
 import type {
   ApiOrgRegistrationRequest,
@@ -53,15 +54,11 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">
-          Tableau de bord
-        </h1>
-        <p className="mt-1 text-gray-600">
-          Vue d’ensemble des demandes, organisations et utilisateurs.
-        </p>
-      </header>
+    <div>
+      <AdminPageHeader
+        title="Tableau de bord"
+        description="Vue d’ensemble des demandes, organisations et utilisateurs."
+      />
 
       {error && (
         <div

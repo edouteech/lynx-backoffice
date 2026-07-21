@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Search, Eye, X, Save, Trash2, CalendarX2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Eye, X, Save, Trash2, CalendarX2 } from 'lucide-react'
 import AdminModal from '../../components/AdminModal'
-import TableExportButton from '../../components/TableExportButton'
+import AdminPageHeader from '../../components/AdminPageHeader'
+import DataTable, { type Action, type Column } from '../../components/DataTable'
 import { apiFetch } from '../../lib/api'
 import type { ApiOrganizationSubscription, ApiOrganization, ApiPlan, LaravelPaginator } from '../../types/apiAdmin'
 import { SubscriptionStatusBadge, formatDate } from './subscriptionUi'
 import Swal from 'sweetalert2'
 
 export default function SubscriptionsPage() {
+  const navigate = useNavigate()
   const [rows, setRows] = useState<ApiOrganizationSubscription[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -17,7 +19,6 @@ export default function SubscriptionsPage() {
   const [plans, setPlans] = useState<ApiPlan[]>([])
   const [depsLoaded, setDepsLoaded] = useState(false)
 
-  const [q, setQ] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   
   const [orgId, setOrgId] = useState('')
@@ -65,34 +66,6 @@ export default function SubscriptionsPage() {
       console.error(e)
     }
   }, [])
-
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) => {
-      const orgName = r.organization?.name ?? ''
-      const planName = r.plan?.name ?? ''
-      return (
-        orgName.toLowerCase().includes(s) ||
-        planName.toLowerCase().includes(s) ||
-        r.id.toString().includes(s)
-      )
-    })
-  }, [rows, q])
-
-  const exportRows = useMemo(() => {
-    return filtered.map((r) => [
-      r.id.toString(),
-      r.organization?.name ?? `ID: ${r.client_id}`,
-      r.plan?.name ?? `ID: ${r.plan_id}`,
-      r.custom_price?.toString() ?? '',
-      r.total_paid?.toString() ?? '0',
-      'XOF',
-      r.start_date ? formatDate(r.start_date, false) : '',
-      r.end_date ? formatDate(r.end_date, false) : '',
-      r.status,
-    ])
-  }, [filtered])
 
   function openCreate() {
     if (!depsLoaded) {
@@ -185,26 +158,99 @@ export default function SubscriptionsPage() {
     }
   }
 
+  const columns = useMemo<Column<ApiOrganizationSubscription>[]>(() => [
+    {
+      key: 'organization.name',
+      label: 'Organisation',
+      sortable: true,
+      render: (_v, r) => (
+        <Link to={`/organizations/${r.client_id}`} className="font-medium text-[#3B82F6] hover:underline">
+          {r.organization?.name ?? `Org #${r.client_id}`}
+        </Link>
+      ),
+    },
+    {
+      key: 'plan.name',
+      label: 'Plan',
+      sortable: true,
+      render: (_v, r) => (
+        <>
+          <div>{r.plan?.name ?? `Plan #${r.plan_id}`}</div>
+          <div className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">{r.payment_frequency}</div>
+        </>
+      ),
+    },
+    {
+      key: 'custom_price',
+      label: 'Montant',
+      sortable: true,
+      render: (_v, r) => `${Number(r.custom_price).toLocaleString()} XOF`,
+    },
+    {
+      key: 'total_paid',
+      label: 'Montant payé',
+      sortable: true,
+      render: (_v, r) => (
+        <span className="font-bold text-emerald-600">
+          {Number(r.total_paid ?? 0).toLocaleString()} XOF
+        </span>
+      ),
+    },
+    {
+      key: 'start_date',
+      label: 'Période',
+      render: (_v, r) => (
+        <>
+          <div className="text-xs">Du {formatDate(r.start_date, false)}</div>
+          <div className="text-xs">Au {formatDate(r.end_date, false)}</div>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Statut',
+      sortable: true,
+      render: (_v, r) => <SubscriptionStatusBadge status={r.status} />,
+    },
+  ], [])
+
+  const actions: Action<ApiOrganizationSubscription>[] = [
+    {
+      label: "Forcer l'expiration",
+      icon: CalendarX2,
+      show: (r) => r.status === 'active',
+      onClick: (r) => void handleForceExpire(r.id),
+    },
+    {
+      label: 'Voir',
+      icon: Eye,
+      variant: 'primary',
+      onClick: (r) => navigate(`/subscriptions/${r.id}`),
+    },
+    {
+      label: 'Supprimer',
+      icon: Trash2,
+      variant: 'danger',
+      onClick: (r) => void handleDelete(r.id),
+    },
+  ]
+
   return (
-    <div className="ml-64 min-h-screen flex-1 bg-[#EFF6FF] p-8">
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold text-gray-900 flex items-center gap-2">
-            Abonnements
-          </h1>
-          <p className="mt-1 text-gray-600">
-            Gérez les licences et abonnements des organisations.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#3B82F6] px-4 py-2 text-sm font-medium text-white hover:bg-[#2563EB]"
-        >
-          <Plus className="h-4 w-4" />
-          Nouvel abonnement
-        </button>
-      </header>
+    <div>
+      <AdminPageHeader
+        title="Abonnements"
+        description="Gérez les licences et abonnements des organisations."
+        action={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex w-fit items-center gap-2 rounded-lg bg-[#3B82F6] px-4 py-2 text-sm font-medium text-white hover:bg-[#2563EB]"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvel abonnement
+          </button>
+        }
+      />
 
       {error && (
         <div
@@ -215,125 +261,16 @@ export default function SubscriptionsPage() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div className="relative min-w-0 max-w-md flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher par organisation, plan ou ID..."
-              className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
-            />
-          </div>
-          <TableExportButton
-            filename="abonnements"
-            title="Abonnements"
-            headers={['ID', 'Organisation', 'Plan', 'Montant', 'Payé', 'Devise', 'Début', 'Fin', 'Statut']}
-            rows={exportRows}
-          />
-        </div>
-
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="px-6 py-12 text-center text-gray-500">Chargement...</div>
-          ) : (
-            <table className="w-full min-w-[800px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
-                  <th className="px-6 py-3 font-semibold">Organisation</th>
-                  <th className="px-6 py-3 font-semibold">Plan</th>
-                  <th className="px-6 py-3 font-semibold">Montant</th>
-                  <th className="px-6 py-3 font-semibold">Montant payé</th>
-                  <th className="px-6 py-3 font-semibold">Période</th>
-                  <th className="px-6 py-3 font-semibold">Statut</th>
-                  <th className="px-6 py-3 text-right font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-10 text-center text-gray-500"
-                    >
-                      {rows.length === 0
-                        ? 'Aucun abonnement trouvé.'
-                        : 'Aucun résultat pour cette recherche.'}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((r) => (
-                    <tr
-                      key={r.id}
-                      className={`border-b border-gray-100 last:border-0 ${
-                        r.status !== 'active' ? 'bg-gray-50/80' : ''
-                      }`}
-                    >
-                      <td className="px-6 py-4 font-medium text-gray-900">
-                        <Link
-                          to={`/organizations/${r.client_id}`}
-                          className="text-[#3B82F6] hover:underline"
-                        >
-                          {r.organization?.name ?? `Org #${r.client_id}`}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        <div>{r.plan?.name ?? `Plan #${r.plan_id}`}</div>
-                        <div className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">{r.payment_frequency}</div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        {Number(r.custom_price).toLocaleString()} XOF
-                      </td>
-                      <td className="px-6 py-4 text-emerald-600 font-bold">
-                        {Number(r.total_paid ?? 0).toLocaleString()} XOF
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        <div className="text-xs">Du {formatDate(r.start_date, false)}</div>
-                        <div className="text-xs">Au {formatDate(r.end_date, false)}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <SubscriptionStatusBadge status={r.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          {r.status === 'active' && (
-                            <button
-                              onClick={() => void handleForceExpire(r.id)}
-                              aria-label={`Forcer l'expiration`}
-                              title={`Forcer l'expiration`}
-                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-500/30 bg-amber-100 text-amber-700 shadow-sm transition-colors hover:bg-amber-200"
-                            >
-                              <CalendarX2 className="h-4 w-4" aria-hidden />
-                            </button>
-                          )}
-                          <Link
-                            to={`/subscriptions/${r.id}`}
-                            aria-label={`Voir la fiche`}
-                            title={`Voir la fiche`}
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#3B82F6]/30 bg-[#3B82F6] text-white shadow-sm transition-colors hover:bg-[#2563EB]"
-                          >
-                            <Eye className="h-4 w-4" aria-hidden />
-                          </Link>
-                          <button
-                            onClick={() => void handleDelete(r.id)}
-                            aria-label={`Supprimer`}
-                            title={`Supprimer`}
-                            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-red-500/30 bg-red-100 text-red-700 shadow-sm transition-colors hover:bg-red-200"
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+      <DataTable
+        data={rows}
+        columns={columns}
+        actions={actions}
+        loading={loading}
+        searchable
+        searchPlaceholder="Rechercher par organisation, plan ou ID…"
+        exportFilename="abonnements"
+        emptyMessage="Aucun abonnement trouvé."
+      />
 
       <AdminModal
         open={modalOpen}
