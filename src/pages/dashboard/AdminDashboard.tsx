@@ -32,13 +32,10 @@ const TOOLTIP_STYLE = {
   boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
 }
 
-const SUBSCRIPTION_STATUS_META: Record<string, { label: string; color: string }> = {
-  trial: { label: 'Essai', color: '#3B82F6' },
-  active: { label: 'Actif', color: '#10B981' },
-  suspended: { label: 'Suspendu', color: '#F59E0B' },
-  cancelled: { label: 'Annulé', color: '#9CA3AF' },
-  expired: { label: 'Expiré', color: '#F43F5E' },
-}
+/** Palette catégorielle (identité), ordre fixe — jamais réassignée par rang/valeur. */
+const PLAN_CATEGORICAL_COLORS = ['#2a78d6', '#008300', '#e87ba4', '#eda100']
+const PLAN_OTHER_COLOR = '#9CA3AF'
+const PLAN_OTHER_LABEL = 'Autres'
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -186,19 +183,29 @@ export default function AdminDashboard() {
     (d) => d.approved + d.pending + d.rejected > 0,
   )
 
-  const subscriptionStatusData = useMemo(() => {
+  const planData = useMemo(() => {
     const counts = subscriptionsInRange.reduce<Record<string, number>>((acc, s) => {
-      acc[s.status] = (acc[s.status] ?? 0) + 1
+      const name = s.plan?.name?.trim() || 'Sans plan'
+      acc[name] = (acc[name] ?? 0) + 1
       return acc
     }, {})
-    return Object.entries(counts).map(([status, count]) => ({
-      status,
-      label: SUBSCRIPTION_STATUS_META[status]?.label ?? status,
-      color: SUBSCRIPTION_STATUS_META[status]?.color ?? '#9CA3AF',
-      count,
+    // Ordre alphabétique fixe : l'identité (nom du plan) porte la couleur, jamais son rang.
+    const names = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'fr'))
+    const main = names.slice(0, PLAN_CATEGORICAL_COLORS.length)
+    const rest = names.slice(PLAN_CATEGORICAL_COLORS.length)
+
+    const rows = main.map((name, i) => ({
+      plan: name,
+      color: PLAN_CATEGORICAL_COLORS[i],
+      count: counts[name],
     }))
+    const otherCount = rest.reduce((sum, name) => sum + counts[name], 0)
+    if (otherCount > 0) {
+      rows.push({ plan: PLAN_OTHER_LABEL, color: PLAN_OTHER_COLOR, count: otherCount })
+    }
+    return rows
   }, [subscriptionsInRange])
-  const hasSubscriptionData = subscriptionStatusData.length > 0
+  const hasPlanData = planData.length > 0
 
   function n(v: number) {
     return String(v)
@@ -332,30 +339,30 @@ export default function AdminDashboard() {
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <header className="mb-6">
             <h2 className="text-lg font-bold text-gray-900">
-              Abonnements par statut
+              Abonnements par plan
             </h2>
             <p className="text-sm text-gray-500">Créés sur la période</p>
           </header>
           <div className="h-[280px] w-full">
             {loading ? (
               <ChartSkeleton />
-            ) : !hasSubscriptionData ? (
+            ) : !hasPlanData ? (
               <ChartEmpty />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={subscriptionStatusData}
+                    data={planData}
                     dataKey="count"
-                    nameKey="label"
+                    nameKey="plan"
                     innerRadius={58}
                     outerRadius={88}
                     paddingAngle={2}
                     stroke="#fff"
                     strokeWidth={2}
                   >
-                    {subscriptionStatusData.map((entry) => (
-                      <Cell key={entry.status} fill={entry.color} />
+                    {planData.map((entry) => (
+                      <Cell key={entry.plan} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip
