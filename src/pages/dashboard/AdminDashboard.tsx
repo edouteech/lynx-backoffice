@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, ClipboardList, Users } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AlertTriangle, Building2, ClipboardList, Clock, Eye, Users } from 'lucide-react'
 import {
   ResponsiveContainer,
   AreaChart,
@@ -17,6 +18,7 @@ import {
 } from 'recharts'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import { DateRangePicker } from '../../components/DateRangePicker'
+import DataTable, { type Action, type Column } from '../../components/DataTable'
 import { apiFetch } from '../../lib/api'
 import type {
   ApiOrgRegistrationRequest,
@@ -25,12 +27,16 @@ import type {
   ApiAdminUser,
   LaravelPaginator,
 } from '../../types/apiAdmin'
+import { SubscriptionStatusBadge, formatDate } from '../subscriptions/subscriptionUi'
 
 const TOOLTIP_STYLE = {
   borderRadius: '12px',
   border: 'none',
   boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
 }
+
+/** Fenêtre « bientôt expirée » : abonnements arrivant à échéance dans les N prochains jours. */
+const EXPIRY_WINDOW_DAYS = 30
 
 /** Palette catégorielle (identité), ordre fixe — jamais réassignée par rang/valeur. */
 const PLAN_CATEGORICAL_COLORS = ['#2a78d6', '#008300', '#e87ba4', '#eda100']
@@ -85,9 +91,11 @@ function monthKey(iso: string): string {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate()
   const [range, setRange] = useState(defaultYearRange)
   const fromDate = useMemo(() => new Date(range.from), [range.from])
   const toDate = useMemo(() => new Date(range.to), [range.to])
+  const [expiryFilter, setExpiryFilter] = useState<'soon' | 'expired'>('soon')
 
   const [organizations, setOrganizations] = useState<ApiOrganization[]>([])
   const [requests, setRequests] = useState<ApiOrgRegistrationRequest[]>([])
@@ -206,6 +214,79 @@ export default function AdminDashboard() {
     return rows
   }, [subscriptionsInRange])
   const hasPlanData = planData.length > 0
+
+  // Indépendant de la plage de dates du haut : l'échéance est un état "à ce jour", pas historique.
+  const now = useMemo(() => new Date(), [])
+  const daysUntil = useMemo(
+    () => (dateStr: string) =>
+      Math.ceil((new Date(dateStr).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)),
+    [now],
+  )
+
+  const expiringSoon = useMemo(
+    () =>
+      subscriptions
+        .filter((s) => {
+          if (s.status === 'cancelled') return false
+          const d = daysUntil(s.end_date)
+          return d >= 0 && d <= EXPIRY_WINDOW_DAYS
+        })
+        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
+    [subscriptions, daysUntil],
+  )
+  const alreadyExpired = useMemo(
+    () =>
+      subscriptions
+        .filter((s) => s.status !== 'cancelled' && daysUntil(s.end_date) < 0)
+        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
+    [subscriptions, daysUntil],
+  )
+  const expiryRows = expiryFilter === 'soon' ? expiringSoon : alreadyExpired
+
+  const expiryColumns = useMemo<Column<ApiOrganizationSubscription>[]>(() => [
+    {
+      key: 'organization.name',
+      label: 'Organisation',
+      sortable: true,
+      render: (_v, s) => (
+        <Link to={`/organizations/${s.client_id}`} className="font-medium text-[#3B82F6] hover:underline">
+          {s.organization?.name ?? `Org #${s.client_id}`}
+        </Link>
+      ),
+    },
+    {
+      key: 'plan.name',
+      label: 'Plan',
+      sortable: true,
+      render: (_v, s) => s.plan?.name ?? `Plan #${s.plan_id}`,
+    },
+    {
+      key: 'end_date',
+      label: 'Date de fin',
+      sortable: true,
+      render: (_v, s) => formatDate(s.end_date, false),
+    },
+    {
+      key: 'end_date',
+      label: expiryFilter === 'soon' ? 'Jours restants' : 'Jours de retard',
+      align: 'center',
+      render: (_v, s) => `${Math.abs(daysUntil(s.end_date))} j`,
+    },
+    {
+      key: 'status',
+      label: 'Statut',
+      render: (_v, s) => <SubscriptionStatusBadge status={s.status} />,
+    },
+  ], [expiryFilter, daysUntil])
+
+  const expiryActions = useMemo<Action<ApiOrganizationSubscription>[]>(() => [
+    {
+      label: 'Voir',
+      icon: Eye,
+      variant: 'primary',
+      onClick: (s) => navigate(`/subscriptions/${s.id}`),
+    },
+  ], [navigate])
 
   function n(v: number) {
     return String(v)
@@ -447,6 +528,74 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              Abonnements à surveiller
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Organisations dont l’abonnement arrive à échéance ou a expiré.
+            </p>
+          </div>
+          <div className="flex w-fit gap-2">
+            <button
+              type="button"
+              onClick={() => setExpiryFilter('soon')}
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
+                expiryFilter === 'soon'
+                  ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/30'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700'
+              }`}
+            >
+              <Clock className="h-4 w-4" />
+              Bientôt expirées
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  expiryFilter === 'soon' ? 'bg-white/20' : 'bg-amber-50 text-amber-700'
+                }`}
+              >
+                {expiringSoon.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpiryFilter('expired')}
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
+                expiryFilter === 'expired'
+                  ? 'border-red-500 bg-red-500 text-white shadow-md shadow-red-500/30'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-red-300 hover:text-red-700'
+              }`}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Déjà expirées
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  expiryFilter === 'expired' ? 'bg-white/20' : 'bg-red-50 text-red-700'
+                }`}
+              >
+                {alreadyExpired.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <DataTable
+          data={expiryRows}
+          columns={expiryColumns}
+          actions={expiryActions}
+          loading={loading}
+          searchable
+          searchPlaceholder="Rechercher une organisation…"
+          exportFilename={expiryFilter === 'soon' ? 'abonnements-bientot-expires' : 'abonnements-expires'}
+          emptyMessage={
+            expiryFilter === 'soon'
+              ? "Aucun abonnement n’expire dans les 30 prochains jours."
+              : 'Aucun abonnement expiré.'
+          }
+        />
       </div>
     </div>
   )
