@@ -21,6 +21,7 @@ export type ApiAdminUser = {
     organization?: { id: number; name: string }
     role?: { id: number; name: string }
   }>
+  created_at?: string
 }
 
 export type ApiOrganization = {
