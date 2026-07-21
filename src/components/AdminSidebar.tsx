@@ -7,7 +7,6 @@ import {
   UserCog,
   ShieldCheck,
 } from 'lucide-react'
-import { useAdminAuth } from '../contexts/AdminAuthContext'
 
 const nav = [
   { path: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -25,9 +24,6 @@ const nav = [
 export default function AdminSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user } = useAdminAuth()
-  const roleLabel =
-    user?.platform_role?.name?.trim() || 'Admin'
   const active = location.pathname.replace(/^\//, '') || 'dashboard'
 
   function go(path: string) {
@@ -49,7 +45,6 @@ export default function AdminSidebar({ collapsed = false }: { collapsed?: boolea
               className=" object-contain"
               loading="lazy"
             />
-            <p className="mt-1 text-xs font-medium text-white/65">{roleLabel}</p>
           </div>
         )}
       </div>
