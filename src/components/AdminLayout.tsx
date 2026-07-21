@@ -1,14 +1,23 @@
 import { LogOut, X } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import AdminSidebar from './AdminSidebar'
 import AdminNavbar from './AdminNavbar'
 import { useAdminAuth } from '../contexts/AdminAuthContext'
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'lynx_admin_sidebar_collapsed'
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { logout } = useAdminAuth()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === '1',
+  )
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, isSidebarCollapsed ? '1' : '0')
+  }, [isSidebarCollapsed])
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -22,9 +31,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex w-full min-h-screen bg-[#EFF6FF]">
-      {/* Sidebar - Desktop always visible, Mobile toggleable */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <AdminSidebar />
+      {/* Sidebar - Desktop always visible (collapsible), Mobile toggleable */}
+      <div
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-all duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
+      >
+        <AdminSidebar collapsed={isSidebarCollapsed} />
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -36,10 +47,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col lg:ml-64 min-w-0 overflow-x-hidden">
+      <div
+        className={`flex flex-1 flex-col min-w-0 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}
+      >
         <AdminNavbar
           onLogoutClick={() => setShowLogoutConfirm(true)}
           onMenuClick={() => setIsSidebarOpen(true)}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed((v) => !v)}
         />
 
         <main className="flex-1 w-full px-4 py-6 lg:px-8 lg:py-8">

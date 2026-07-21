@@ -6,9 +6,16 @@ import { userDisplayName, userInitials } from '../lib/userDisplay'
 interface AdminNavbarProps {
   onLogoutClick: () => void
   onMenuClick: () => void
+  isSidebarCollapsed: boolean
+  onToggleCollapse: () => void
 }
 
-export default function AdminNavbar({ onLogoutClick, onMenuClick }: AdminNavbarProps) {
+export default function AdminNavbar({
+  onLogoutClick,
+  onMenuClick,
+  isSidebarCollapsed,
+  onToggleCollapse,
+}: AdminNavbarProps) {
   const { user } = useAdminAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const roleLabel = user?.platform_role?.name?.trim() || 'Admin'
@@ -20,6 +27,16 @@ export default function AdminNavbar({ onLogoutClick, onMenuClick }: AdminNavbarP
           type="button"
           onClick={onMenuClick}
           className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:hidden"
+        >
+          <Menu className="h-6 w-6" />
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          title={isSidebarCollapsed ? 'Déplier le menu' : 'Réduire le menu'}
+          aria-label={isSidebarCollapsed ? 'Déplier le menu' : 'Réduire le menu'}
+          className="hidden rounded-lg p-2 text-gray-500 hover:bg-gray-100 lg:flex"
         >
           <Menu className="h-6 w-6" />
         </button>

@@ -22,7 +22,7 @@ const nav = [
   { path: 'users', label: 'Utilisateurs', icon: Users },
 ] as const
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAdminAuth()
@@ -35,17 +35,23 @@ export default function AdminSidebar() {
   }
 
   return (
-    <div className="fixed z-50 flex h-full w-64 flex-col bg-[#0F2E4A] shadow-2xl backdrop-blur-xl">
+    <div className="flex h-full w-full flex-col bg-[#0F2E4A] shadow-2xl backdrop-blur-xl">
       <div className="shrink-0 border-b border-white/10 p-6">
-        <div className="flex flex-col items-center text-center">
-          <img
-            src="/lynx_400px.png"
-            alt="Lynx"
-            className=" object-contain"
-            loading="lazy"
-          />
-          <p className="mt-1 text-xs font-medium text-white/65">{roleLabel}</p>
-        </div>
+        {collapsed ? (
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-[#3B82F6] text-sm font-bold text-white">
+            L
+          </div>
+        ) : (
+          <div className="flex flex-col items-center text-center">
+            <img
+              src="/lynx_400px.png"
+              alt="Lynx"
+              className=" object-contain"
+              loading="lazy"
+            />
+            <p className="mt-1 text-xs font-medium text-white/65">{roleLabel}</p>
+          </div>
+        )}
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
@@ -57,14 +63,17 @@ export default function AdminSidebar() {
               key={item.path}
               type="button"
               onClick={() => go(item.path)}
+              title={collapsed ? item.label : undefined}
               className={`mb-3 flex w-full transform items-center gap-3 rounded-2xl px-4 py-4 text-left transition-all duration-500 hover:scale-105 ${
+                collapsed ? 'justify-center px-0' : ''
+              } ${
                 isActive
                   ? 'translate-x-2 scale-105 bg-[#3B82F6] text-white shadow-xl'
                   : 'text-white/80 hover:translate-x-1 hover:bg-[#3B82F6]/20 hover:text-white'
               }`}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              <span className="font-semibold">{item.label}</span>
+              {!collapsed && <span className="font-semibold">{item.label}</span>}
             </button>
           )
         })}
