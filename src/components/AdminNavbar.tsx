@@ -21,7 +21,7 @@ export default function AdminNavbar({
   const roleLabel = user?.platform_role?.name?.trim() || 'Admin'
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white/80 px-4 backdrop-blur-md transition-all duration-300 lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 w-full shrink-0 items-center justify-between border-b border-gray-200 bg-white/80 px-4 backdrop-blur-md transition-all duration-300 lg:px-8">
       <div className="flex items-center gap-4">
         <button
           type="button"

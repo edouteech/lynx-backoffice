@@ -20,13 +20,7 @@ import AdminPageHeader from '../../components/AdminPageHeader'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import DataTable, { type Action, type Column } from '../../components/DataTable'
 import { apiFetch } from '../../lib/api'
-import type {
-  ApiOrgRegistrationRequest,
-  ApiOrganization,
-  ApiOrganizationSubscription,
-  ApiAdminUser,
-  LaravelPaginator,
-} from '../../types/apiAdmin'
+import type { ApiDashboardStats, ApiOrganizationSubscription } from '../../types/apiAdmin'
 import { SubscriptionStatusBadge, formatDate } from '../subscriptions/subscriptionUi'
 
 const TOOLTIP_STYLE = {
@@ -34,9 +28,6 @@ const TOOLTIP_STYLE = {
   border: 'none',
   boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
 }
-
-/** Fenêtre « bientôt expirée » : abonnements arrivant à échéance dans les N prochains jours. */
-const EXPIRY_WINDOW_DAYS = 30
 
 /** Palette catégorielle (identité), ordre fixe — jamais réassignée par rang/valeur. */
 const PLAN_CATEGORICAL_COLORS = ['#2a78d6', '#008300', '#e87ba4', '#eda100']
@@ -59,13 +50,7 @@ function defaultYearRange(): { from: string; to: string } {
   return { from: formatInputDateTime(start), to: formatInputDateTime(end) }
 }
 
-function inRange(iso: string | undefined | null, from: Date, to: Date): boolean {
-  if (!iso) return false
-  const t = new Date(iso).getTime()
-  return t >= from.getTime() && t <= to.getTime()
-}
-
-/** Un point par mois couvert par [from, to] (borné à 10 ans pour rester lisible). */
+/** Un point par mois couvert par [from, to] (borné à 10 ans pour rester lisible), pour les libellés d'axe. */
 function monthsInRange(from: Date, to: Date): { key: string; label: string }[] {
   const out: { key: string; label: string }[] = []
   const spansMultipleYears = from.getFullYear() !== to.getFullYear()
@@ -85,10 +70,8 @@ function monthsInRange(from: Date, to: Date): { key: string; label: string }[] {
   return out
 }
 
-function monthKey(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
-}
+/** Fenêtre « bientôt expirée » côté affichage (doit rester cohérente avec `EXPIRY_WINDOW_DAYS` de l'API). */
+const EXPIRY_WINDOW_DAYS = 30
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
@@ -97,10 +80,7 @@ export default function AdminDashboard() {
   const toDate = useMemo(() => new Date(range.to), [range.to])
   const [expiryFilter, setExpiryFilter] = useState<'soon' | 'expired'>('soon')
 
-  const [organizations, setOrganizations] = useState<ApiOrganization[]>([])
-  const [requests, setRequests] = useState<ApiOrgRegistrationRequest[]>([])
-  const [subscriptions, setSubscriptions] = useState<ApiOrganizationSubscription[]>([])
-  const [users, setUsers] = useState<ApiAdminUser[]>([])
+  const [stats, setStats] = useState<ApiDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -110,26 +90,12 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(null)
       try {
-        const [orgRes, reqRes, subRes, userRes] = await Promise.all([
-          apiFetch<LaravelPaginator<ApiOrganization>>(
-            '/Admin/organizations?per_page=500',
-          ),
-          apiFetch<LaravelPaginator<ApiOrgRegistrationRequest>>(
-            '/Admin/organization-registration-requests?per_page=300',
-          ),
-          apiFetch<LaravelPaginator<ApiOrganizationSubscription>>(
-            '/Admin/subscriptions?per_page=500',
-          ),
-          apiFetch<LaravelPaginator<ApiAdminUser>>('/Admin/users?per_page=500'),
-        ])
-        if (!cancelled) {
-          setOrganizations(orgRes.data ?? [])
-          setRequests(reqRes.data ?? [])
-          setSubscriptions(subRes.data ?? [])
-          setUsers(userRes.data ?? [])
-        }
+        const qs = new URLSearchParams({ from: range.from, to: range.to })
+        const res = await apiFetch<ApiDashboardStats>(`/Admin/stats?${qs.toString()}`)
+        if (!cancelled) setStats(res)
       } catch (e) {
         if (!cancelled) {
+          setStats(null)
           setError(e instanceof Error ? e.message : 'Chargement impossible.')
         }
       } finally {
@@ -139,83 +105,50 @@ export default function AdminDashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
-
-  const orgsInRange = useMemo(
-    () => organizations.filter((o) => inRange(o.created_at, fromDate, toDate)),
-    [organizations, fromDate, toDate],
-  )
-  const requestsInRange = useMemo(
-    () => requests.filter((r) => inRange(r.created_at, fromDate, toDate)),
-    [requests, fromDate, toDate],
-  )
-  const subscriptionsInRange = useMemo(
-    () => subscriptions.filter((s) => inRange(s.created_at, fromDate, toDate)),
-    [subscriptions, fromDate, toDate],
-  )
-  const usersInRange = useMemo(
-    () => users.filter((u) => inRange(u.created_at, fromDate, toDate)),
-    [users, fromDate, toDate],
-  )
-  const pendingInRange = useMemo(
-    () => requestsInRange.filter((r) => r.status === 'pending').length,
-    [requestsInRange],
-  )
+  }, [range.from, range.to])
 
   const months = useMemo(() => monthsInRange(fromDate, toDate), [fromDate, toDate])
 
-  const orgTrend = useMemo(
-    () =>
-      months.map(({ key, label }) => ({
-        month: label,
-        count: orgsInRange.filter((o) => monthKey(o.created_at) === key).length,
-      })),
-    [months, orgsInRange],
-  )
+  const orgTrend = useMemo(() => {
+    const byKey = new Map((stats?.organization_trend ?? []).map((d) => [d.month, d.count]))
+    return months.map(({ key, label }) => ({ month: label, count: byKey.get(key) ?? 0 }))
+  }, [months, stats])
   const hasOrgTrend = orgTrend.some((d) => d.count > 0)
 
-  const requestTrend = useMemo(
-    () =>
-      months.map(({ key, label }) => {
-        const inMonth = requestsInRange.filter((r) => monthKey(r.created_at) === key)
-        return {
-          month: label,
-          approved: inMonth.filter((r) => r.status === 'approved').length,
-          pending: inMonth.filter((r) => r.status === 'pending').length,
-          rejected: inMonth.filter((r) => r.status === 'rejected').length,
-        }
-      }),
-    [months, requestsInRange],
-  )
-  const hasRequestTrend = requestTrend.some(
-    (d) => d.approved + d.pending + d.rejected > 0,
-  )
+  const requestTrend = useMemo(() => {
+    const byKey = new Map((stats?.request_trend ?? []).map((d) => [d.month, d]))
+    return months.map(({ key, label }) => {
+      const d = byKey.get(key)
+      return {
+        month: label,
+        approved: d?.approved ?? 0,
+        pending: d?.pending ?? 0,
+        rejected: d?.rejected ?? 0,
+      }
+    })
+  }, [months, stats])
+  const hasRequestTrend = requestTrend.some((d) => d.approved + d.pending + d.rejected > 0)
 
   const planData = useMemo(() => {
-    const counts = subscriptionsInRange.reduce<Record<string, number>>((acc, s) => {
-      const name = s.plan?.name?.trim() || 'Sans plan'
-      acc[name] = (acc[name] ?? 0) + 1
-      return acc
-    }, {})
+    const rows = stats?.plan_distribution ?? []
     // Ordre alphabétique fixe : l'identité (nom du plan) porte la couleur, jamais son rang.
-    const names = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'fr'))
-    const main = names.slice(0, PLAN_CATEGORICAL_COLORS.length)
-    const rest = names.slice(PLAN_CATEGORICAL_COLORS.length)
+    const sorted = [...rows].sort((a, b) => a.plan.localeCompare(b.plan, 'fr'))
+    const main = sorted.slice(0, PLAN_CATEGORICAL_COLORS.length)
+    const rest = sorted.slice(PLAN_CATEGORICAL_COLORS.length)
 
-    const rows = main.map((name, i) => ({
-      plan: name,
+    const out = main.map((r, i) => ({
+      plan: r.plan,
       color: PLAN_CATEGORICAL_COLORS[i],
-      count: counts[name],
+      count: r.count,
     }))
-    const otherCount = rest.reduce((sum, name) => sum + counts[name], 0)
+    const otherCount = rest.reduce((sum, r) => sum + r.count, 0)
     if (otherCount > 0) {
-      rows.push({ plan: PLAN_OTHER_LABEL, color: PLAN_OTHER_COLOR, count: otherCount })
+      out.push({ plan: PLAN_OTHER_LABEL, color: PLAN_OTHER_COLOR, count: otherCount })
     }
-    return rows
-  }, [subscriptionsInRange])
+    return out
+  }, [stats])
   const hasPlanData = planData.length > 0
 
-  // Indépendant de la plage de dates du haut : l'échéance est un état "à ce jour", pas historique.
   const now = useMemo(() => new Date(), [])
   const daysUntil = useMemo(
     () => (dateStr: string) =>
@@ -223,24 +156,8 @@ export default function AdminDashboard() {
     [now],
   )
 
-  const expiringSoon = useMemo(
-    () =>
-      subscriptions
-        .filter((s) => {
-          if (s.status === 'cancelled') return false
-          const d = daysUntil(s.end_date)
-          return d >= 0 && d <= EXPIRY_WINDOW_DAYS
-        })
-        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
-    [subscriptions, daysUntil],
-  )
-  const alreadyExpired = useMemo(
-    () =>
-      subscriptions
-        .filter((s) => s.status !== 'cancelled' && daysUntil(s.end_date) < 0)
-        .sort((a, b) => daysUntil(a.end_date) - daysUntil(b.end_date)),
-    [subscriptions, daysUntil],
-  )
+  const expiringSoon = stats?.expiring_soon ?? []
+  const alreadyExpired = stats?.already_expired ?? []
   const expiryRows = expiryFilter === 'soon' ? expiringSoon : alreadyExpired
 
   const expiryColumns = useMemo<Column<ApiOrganizationSubscription>[]>(() => [
@@ -326,7 +243,7 @@ export default function AdminDashboard() {
                 Demandes en attente
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {loading ? '—' : n(pendingInRange)}
+                {loading ? '—' : n(stats?.summary.pending_requests ?? 0)}
               </p>
             </div>
           </div>
@@ -341,7 +258,7 @@ export default function AdminDashboard() {
                 Nouvelles organisations
               </p>
               <p className="text-2xl font-semibold text-gray-900">
-                {loading ? '—' : n(orgsInRange.length)}
+                {loading ? '—' : n(stats?.summary.new_organizations ?? 0)}
               </p>
             </div>
           </div>
@@ -354,7 +271,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-sm font-medium text-gray-500">Nouveaux utilisateurs</p>
               <p className="text-2xl font-semibold text-gray-900">
-                {loading ? '—' : n(usersInRange.length)}
+                {loading ? '—' : n(stats?.summary.new_users ?? 0)}
               </p>
             </div>
           </div>
@@ -537,7 +454,8 @@ export default function AdminDashboard() {
               Abonnements à surveiller
             </h2>
             <p className="mt-1 text-sm text-gray-600">
-              Organisations dont l’abonnement arrive à échéance ou a expiré.
+              Organisations dont l’abonnement arrive à échéance (
+              {EXPIRY_WINDOW_DAYS} j) ou a expiré.
             </p>
           </div>
           <div className="flex w-fit gap-2">

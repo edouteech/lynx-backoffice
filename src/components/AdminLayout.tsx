@@ -30,7 +30,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex w-full min-h-screen bg-[#EFF6FF]">
+    <div className="flex h-screen w-full overflow-hidden bg-[#EFF6FF]">
       {/* Sidebar - Desktop always visible (collapsible), Mobile toggleable */}
       <div
         className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-all duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}
@@ -46,9 +46,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         ></div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Content Area — seule zone qui scrolle, pour que la navbar `sticky top-0` reste épinglée */}
       <div
-        className={`flex flex-1 flex-col min-w-0 overflow-x-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}
+        className={`flex flex-1 flex-col min-w-0 overflow-x-hidden overflow-y-auto transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}
       >
         <AdminNavbar
           onLogoutClick={() => setShowLogoutConfirm(true)}
@@ -61,7 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
 
-        <footer className="border-t border-gray-200 bg-white px-6 py-3">
+        <footer className="shrink-0 border-t border-gray-200 bg-white px-6 py-3">
           <div className="text-center text-sm text-gray-600">
             Lynx — administration
           </div>

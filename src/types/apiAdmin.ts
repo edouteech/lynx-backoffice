@@ -132,3 +132,25 @@ export type ApiOrganizationSubscription = {
   plan?: ApiPlan
   cycles?: ApiSubscriptionCycle[]
 }
+
+/** Réponse de `GET /Admin/stats` — agrégats calculés côté API pour la plage [from, to]. */
+export type ApiDashboardStats = {
+  range: { from: string; to: string }
+  summary: {
+    pending_requests: number
+    new_organizations: number
+    new_users: number
+  }
+  organization_trend: Array<{ month: string; count: number }>
+  request_trend: Array<{
+    month: string
+    approved: number
+    pending: number
+    rejected: number
+  }>
+  plan_distribution: Array<{ plan: string; count: number }>
+  /** Abonnements non annulés arrivant à échéance dans les 30 jours (état « à ce jour »). */
+  expiring_soon: ApiOrganizationSubscription[]
+  /** Abonnements non annulés déjà arrivés à échéance (état « à ce jour »). */
+  already_expired: ApiOrganizationSubscription[]
+}
