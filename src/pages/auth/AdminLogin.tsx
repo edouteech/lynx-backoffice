@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminAuth } from '../../contexts/AdminAuthContext'
 import LoadingScreen from '../../components/LoadingScreen'
+import { PasswordInput } from '../../components/PasswordInput'
 
 export default function AdminLogin() {
   const { login, user, bootstrapping } = useAdminAuth()
@@ -92,9 +93,8 @@ export default function AdminLogin() {
             >
               Mot de passe
             </label>
-            <input
+            <PasswordInput
               id="admin-login-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

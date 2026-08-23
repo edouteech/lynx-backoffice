@@ -12,6 +12,7 @@ import {
 import AdminModal from '../../components/AdminModal'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import DataTable, { type Action, type Column } from '../../components/DataTable'
+import { PasswordInput } from '../../components/PasswordInput'
 import { apiFetch } from '../../lib/api'
 import type { ApiOrganization, LaravelPaginator } from '../../types/apiAdmin'
 import {
@@ -560,9 +561,8 @@ export default function OrganizationsPage() {
                           (min. 8 caractères)
                         </span>
                       </label>
-                      <input
+                      <PasswordInput
                         id="org-owner-password"
-                        type="password"
                         value={ownerPassword}
                         onChange={(e) => setOwnerPassword(e.target.value)}
                         autoComplete="new-password"
@@ -577,9 +577,8 @@ export default function OrganizationsPage() {
                       >
                         Confirmer le mot de passe propriétaire
                       </label>
-                      <input
+                      <PasswordInput
                         id="org-owner-password-2"
-                        type="password"
                         value={ownerPasswordConfirm}
                         onChange={(e) =>
                           setOwnerPasswordConfirm(e.target.value)

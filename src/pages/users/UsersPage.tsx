@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminModal from '../../components/AdminModal'
 import AdminPageHeader from '../../components/AdminPageHeader'
 import DataTable, { type Action, type Column } from '../../components/DataTable'
+import { PasswordInput } from '../../components/PasswordInput'
 import { apiFetch } from '../../lib/api'
 import type { ApiAdminUser, LaravelPaginator } from '../../types/apiAdmin'
 
@@ -293,9 +294,8 @@ export default function UsersPage() {
                 ? 'Nouveau mot de passe (laisser vide pour ne pas changer)'
                 : 'Mot de passe'}
             </label>
-            <input
+            <PasswordInput
               id="user-password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
