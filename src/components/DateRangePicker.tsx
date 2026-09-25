@@ -24,6 +24,38 @@ const formatInputDateTime = (date: Date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+const formatJustDate = (date: Date | null) => {
+  if (!date || isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+
+const parseDateString = (val: string): Date | null => {
+  if (!val) return null;
+  const clean = val.trim();
+  if (clean.includes("/")) {
+    const [d, m, y] = clean.split("/").map(Number);
+    if (!isNaN(d) && !isNaN(m) && !isNaN(y) && y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const dt = new Date(y, m - 1, d);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+  }
+  if (clean.includes("-")) {
+    const [y, m, d] = clean.split("-").map(Number);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d) && y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      const dt = new Date(y, m - 1, d);
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+  }
+  return null;
+};
+
+const formatJustTime = (date: Date | null) => {
+  if (!date || isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 const getDaysInMonth = (year: number, month: number) => {
   return new Date(year, month + 1, 0).getDate();
 };
@@ -57,11 +89,40 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
 
   // Temporary selection state
   const [startDate, setStartDate] = useState<Date>(new Date(from));
-  const [endDate, setEndDate] = useState<Date | null>(new Date(to));
+  const [endDate, setEndDate] = useState<Date>(new Date(to));
+  const [startDateText, setStartDateText] = useState<string>(formatJustDate(new Date(from)));
+  const [startTimeText, setStartTimeText] = useState<string>(formatJustTime(new Date(from)));
+  const [endDateText, setEndDateText] = useState<string>(formatJustDate(new Date(to)));
+  const [endTimeText, setEndTimeText] = useState<string>(formatJustTime(new Date(to)));
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
 
   // View state (which months are visible)
   const [viewDate, setViewDate] = useState(new Date(startDate));
+
+  // Sync inputs when startDate / endDate change
+  useEffect(() => {
+    setStartDateText(formatJustDate(startDate));
+    setStartTimeText(formatJustTime(startDate));
+  }, [startDate]);
+
+  useEffect(() => {
+    setEndDateText(formatJustDate(endDate || startDate));
+    setEndTimeText(formatJustTime(endDate || startDate));
+  }, [endDate, startDate]);
+
+  useEffect(() => {
+    const s = new Date(from);
+    setStartDate(s);
+    setStartDateText(formatJustDate(s));
+    setStartTimeText(formatJustTime(s));
+  }, [from]);
+
+  useEffect(() => {
+    const e = new Date(to);
+    setEndDate(e);
+    setEndDateText(formatJustDate(e));
+    setEndTimeText(formatJustTime(e));
+  }, [to]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,7 +138,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    // Approximate dropdown width (sidebar 192 + 2 calendars ~560 + padding)
     const estimatedWidth = 760;
     if (rect.left + estimatedWidth > window.innerWidth) {
       setDropdownAlign('right');
@@ -89,9 +149,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
   const handleDayClick = (date: Date) => {
     if (!startDate || (startDate && endDate)) {
       const newStart = new Date(date);
-      newStart.setHours(0, 0, 0, 0);
+      newStart.setHours(startDate ? startDate.getHours() : 0, startDate ? startDate.getMinutes() : 0, 0, 0);
       setStartDate(newStart);
-      setEndDate(null);
+      setEndDate(null as any);
     } else if (startDate && !endDate) {
       if (date < startDate) {
         const newStart = new Date(date);
@@ -179,8 +239,65 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
     setViewDate(new Date(start));
   };
 
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setStartDateText(val);
+    const parsed = parseDateString(val);
+    if (parsed) {
+      const updated = new Date(startDate);
+      updated.setFullYear(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      if (!isNaN(updated.getTime())) {
+        setStartDate(updated);
+        setViewDate(new Date(updated));
+      }
+    }
+  };
+
+  const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setStartTimeText(val);
+    if (val) {
+      const [h, m] = val.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        const updated = new Date(startDate);
+        updated.setHours(h, m, 0, 0);
+        setStartDate(updated);
+      }
+    }
+  };
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setEndDateText(val);
+    const parsed = parseDateString(val);
+    if (parsed) {
+      const base = endDate || startDate || new Date();
+      const updated = new Date(base);
+      updated.setFullYear(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+      if (!isNaN(updated.getTime())) {
+        setEndDate(updated);
+      }
+    }
+  };
+
+  const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setEndTimeText(val);
+    if (val) {
+      const [h, m] = val.split(":").map(Number);
+      if (!isNaN(h) && !isNaN(m)) {
+        const base = endDate || startDate || new Date();
+        const updated = new Date(base);
+        updated.setHours(h, m, 59, 999);
+        setEndDate(updated);
+      }
+    }
+  };
+
   const handleApply = () => {
-    onRangeChange(formatInputDateTime(startDate), formatInputDateTime(endDate || startDate));
+    const s = startDate;
+    const e = endDate || startDate;
+    onRangeChange(formatInputDateTime(s), formatInputDateTime(e));
     setIsOpen(false);
   };
 
@@ -211,7 +328,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
 
     return (
       <div className="w-[280px]">
-        <div className="mb-4 flex items-center justify-center font-semibold text-gray-700">
+        <div className="mb-4 flex items-center justify-center font-semibold text-gray-700 capitalize">
           {monthName} {year}
         </div>
         <div className="grid grid-cols-7 gap-y-1 text-center">
@@ -230,6 +347,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
             return (
               <button
                 key={idx}
+                type="button"
                 onClick={() => handleDayClick(d.date)}
                 onMouseEnter={() => setHoverDate(d.date)}
                 className={`relative h-9 w-9 text-sm transition-all flex items-center justify-center
@@ -253,6 +371,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
     <div className="relative" ref={containerRef}>
       {/* Trigger Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center gap-2 rounded-xl border border-[#3B82F6]/30 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-[#3B82F6] transition-all"
       >
@@ -280,6 +399,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
             ].map((p) => (
               <button
                 key={p.id}
+                type="button"
                 onClick={() => applyPreset(p.id)}
                 className="w-full text-left px-3 py-2 text-sm font-medium text-gray-600 hover:bg-white hover:text-[#3B82F6] hover:shadow-sm rounded-xl transition-all"
               >
@@ -291,37 +411,59 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
           {/* Main Calendar Area */}
           <div className="flex flex-col">
             {/* Top Controls */}
-            <div className="border-b border-gray-100 p-6 bg-gray-50/30 flex flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="flex items-center gap-2">
-                <div className="relative w-36">
+            <div className="border-b border-gray-100 px-6 py-3.5 bg-gray-50/30 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Start Date / Time Pill */}
+                <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
                   <input
                     type="text"
-                    readOnly
-                    value={startDate ? formatInputDateTime(startDate).replace("T", " - ") : ""}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-2 py-2.5 text-sm text-gray-700 outline-none focus:border-[#3B82F6] transition-all"
+                    placeholder="JJ/MM/AAAA"
+                    value={startDateText}
+                    onChange={handleStartDateChange}
+                    className="w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
+                  />
+                  <span className="text-gray-300 font-normal text-xs select-none">|</span>
+                  <input
+                    type="time"
+                    value={startTimeText}
+                    onChange={handleStartTimeChange}
+                    className="w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
                   />
                 </div>
+
                 <div className="h-px w-3 bg-gray-300 shrink-0" />
-                <div className="relative w-36">
+
+                {/* End Date / Time Pill */}
+                <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
                   <input
                     type="text"
-                    readOnly
-                    value={endDate ? formatInputDateTime(endDate).replace("T", " - ") : ""}
-                    className="w-full rounded-xl border border-gray-200 bg-white px-2 py-2.5 text-sm text-gray-700 outline-none focus:border-[#3B82F6] transition-all"
+                    placeholder="JJ/MM/AAAA"
+                    value={endDateText}
+                    onChange={handleEndDateChange}
+                    className="w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
+                  />
+                  <span className="text-gray-300 font-normal text-xs select-none">|</span>
+                  <input
+                    type="time"
+                    value={endTimeText}
+                    onChange={handleEndTimeChange}
+                    className="w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 ml-auto">
+              <div className="flex items-center gap-2 ml-auto shrink-0">
                 <button
+                  type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-xl px-6 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
+                  className="rounded-xl px-3.5 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
                 >
                   Annuler
                 </button>
                 <button
+                  type="button"
                   onClick={handleApply}
-                  className="rounded-xl bg-[#3B82F6] px-8 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#3B82F6]/20 hover:bg-[#4F46E5] active:scale-95 transition-all"
+                  className="rounded-xl bg-[#3B82F6] px-5 py-1.5 text-sm font-semibold text-white shadow-md shadow-[#3B82F6]/20 hover:bg-[#2563EB] active:scale-95 transition-all"
                 >
                   Appliquer
                 </button>
@@ -332,6 +474,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
               {/* Left Calendar */}
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
                   className="absolute left-0 top-0 p-1 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
                 >
@@ -343,6 +486,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
               {/* Right Calendar */}
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
                   className="absolute right-0 top-0 p-1 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
                 >
