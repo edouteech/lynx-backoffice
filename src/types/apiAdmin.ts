@@ -154,3 +154,57 @@ export type ApiDashboardStats = {
   /** Abonnements non annulés déjà arrivés à échéance (état « à ce jour »). */
   already_expired: ApiOrganizationSubscription[]
 }
+
+
+export type ApiPosLog = {
+  id: number
+  local_id?: number | null
+  timestamp: string
+  level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL' | string
+  category: string
+  action: string
+  user_id?: number | null
+  user_name?: string | null
+  register_id?: number | null
+  store_id?: number | null
+  organization_id?: number | null
+  period_code?: string | null
+  device_id?: string | null
+  platform?: string | null
+  app_version?: string | null
+  is_online: boolean
+  details?: Record<string, unknown> | null
+  error_message?: string | null
+  stack_trace?: string | null
+  created_at: string
+  updated_at: string
+  organization?: { id: number; name: string } | null
+  store?: { id: number; name: string } | null
+  cash_register?: { id: number; name: string; reference?: string | null } | null
+  user?: { id: number; name: string; email: string } | null
+}
+
+export type ApiPosLogStats = {
+  total_logs: number
+  logs_last_24h: number
+  errors_last_24h: number
+  warnings_last_24h: number
+}
+
+
+export type ApiSystemLog = {
+  id: string
+  timestamp: string
+  environment: string
+  level: string
+  message: string
+  stack_trace?: string | null
+}
+
+export type ApiSystemLogStats = {
+  total: number
+  errors: number
+  warnings: number
+  info: number
+  file_size: string
+}

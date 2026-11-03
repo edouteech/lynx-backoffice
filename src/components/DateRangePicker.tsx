@@ -80,12 +80,25 @@ const isBetween = (date: Date, start: Date, end: Date) => {
   return d > s && d < e;
 };
 
+const PRESETS = [
+  { id: "today", label: "Aujourd'hui" },
+  { id: "yesterday", label: "Hier" },
+  { id: "this-week", label: "Cette semaine" },
+  { id: "last-week", label: "Semaine dernière" },
+  { id: "this-month", label: "Ce mois-ci" },
+  { id: "last-month", label: "Mois dernier" },
+  { id: "this-year", label: "Cette année" },
+  { id: "last-year", label: "Année dernière" },
+  { id: "all-time", label: "Tout le temps" },
+];
+
 /* ================= COMPONENT ================= */
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRangeChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownAlign, setDropdownAlign] = useState<'left' | 'right'>('left');
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Temporary selection state
   const [startDate, setStartDate] = useState<Date>(new Date(from));
@@ -124,17 +137,25 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
     setEndTimeText(formatJustTime(e));
   }, [to]);
 
+  // Click outside to close (desktop only, on mobile the backdrop handles it)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
-  // Compute dropdown alignment when it opens
+  // Compute dropdown alignment on desktop
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
@@ -301,7 +322,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
     setIsOpen(false);
   };
 
-  const renderMonth = (monthOffset: number) => {
+  const renderMonth = (monthOffset: number, showBothChevronsOnMobile = false) => {
     const date = new Date(viewDate.getFullYear(), viewDate.getMonth() + monthOffset, 1);
     const monthName = date.toLocaleString("fr-FR", { month: "long" });
     const year = date.getFullYear();
@@ -327,13 +348,39 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
     }
 
     return (
-      <div className="w-[280px]">
-        <div className="mb-4 flex items-center justify-center font-semibold text-gray-700 capitalize">
-          {monthName} {year}
+      <div className="w-full max-w-[300px] sm:w-[280px] mx-auto">
+        <div className="relative mb-3 sm:mb-4 flex items-center justify-center font-semibold text-gray-700 capitalize text-sm sm:text-base">
+          {/* Navigation chevrons */}
+          {monthOffset === 0 && (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
+              className="absolute left-0 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+              title="Mois précédent"
+            >
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          )}
+
+          <span>{monthName} {year}</span>
+
+          {(monthOffset === 1 || showBothChevronsOnMobile) && (
+            <button
+              type="button"
+              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
+              className={`absolute right-0 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors ${
+                showBothChevronsOnMobile && monthOffset === 0 ? "md:hidden" : ""
+              }`}
+              title="Mois suivant"
+            >
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
+          )}
         </div>
+
         <div className="grid grid-cols-7 gap-y-1 text-center">
           {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
-            <div key={d} className="text-xs font-medium text-gray-400 py-2">
+            <div key={d} className="text-[11px] sm:text-xs font-medium text-gray-400 py-1.5 sm:py-2">
               {d}
             </div>
           ))}
@@ -350,9 +397,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
                 type="button"
                 onClick={() => handleDayClick(d.date)}
                 onMouseEnter={() => setHoverDate(d.date)}
-                className={`relative h-9 w-9 text-sm transition-all flex items-center justify-center
+                className={`relative h-8 w-8 sm:h-9 sm:w-9 mx-auto text-xs sm:text-sm transition-all flex items-center justify-center font-medium
                   ${!d.current ? "text-gray-300" : "text-gray-700"}
-                  ${isSelected ? "bg-[#3B82F6] text-white rounded-lg z-10" : ""}
+                  ${isSelected ? "bg-[#3B82F6] text-white rounded-lg z-10 shadow-sm" : ""}
                   ${isInRange ? "bg-[#3B82F6]/10 text-[#3B82F6]" : ""}
                   ${isHovered ? "bg-[#3B82F6]/5" : ""}
                   hover:bg-gray-100 rounded-lg
@@ -368,135 +415,132 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ from, to, onRa
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative inline-block w-full sm:w-auto" ref={containerRef}>
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 rounded-xl border border-[#3B82F6]/30 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:border-[#3B82F6] transition-all"
+        className="flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 rounded-xl border border-[#3B82F6]/30 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 shadow-sm hover:border-[#3B82F6] hover:bg-gray-50/50 transition-all"
       >
-        <CalendarIcon className="h-4 w-4 text-[#3B82F6]" />
-        <span>
-          {formatDisplayDate(new Date(from))} - {formatDisplayDate(new Date(to))}
-        </span>
+        <div className="flex items-center gap-2 truncate">
+          <CalendarIcon className="h-4 w-4 shrink-0 text-[#3B82F6]" />
+          <span className="truncate">
+            {formatDisplayDate(new Date(from))} - {formatDisplayDate(new Date(to))}
+          </span>
+        </div>
       </button>
 
-      {/* Picker Popover */}
+      {/* Picker Modal on Mobile, Dropdown on Desktop */}
       {isOpen && (
-        <div className={`absolute ${dropdownAlign === 'right' ? 'right-0' : 'left-0'} mt-2 z-50 flex flex-col rounded-3xl border border-gray-200 bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 lg:flex-row lg:w-auto w-[95vw]`}>
-          {/* Sidebar */}
-          <div className="w-48 border-r border-gray-100 bg-gray-50/50 p-4 flex flex-col gap-1 shrink-0">
-            {[
-              { id: "today", label: "Aujourd'hui" },
-              { id: "yesterday", label: "Hier" },
-              { id: "this-week", label: "Cette semaine" },
-              { id: "last-week", label: "Semaine dernière" },
-              { id: "this-month", label: "Ce mois-ci" },
-              { id: "last-month", label: "Mois dernier" },
-              { id: "this-year", label: "Cette année" },
-              { id: "last-year", label: "Année dernière" },
-              { id: "all-time", label: "Tout le temps" },
-            ].map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => applyPreset(p.id)}
-                className="w-full text-left px-3 py-2 text-sm font-medium text-gray-600 hover:bg-white hover:text-[#3B82F6] hover:shadow-sm rounded-xl transition-all"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        <>
+          {/* Backdrop on mobile */}
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs md:hidden"
+            onClick={() => setIsOpen(false)}
+          />
 
-          {/* Main Calendar Area */}
-          <div className="flex flex-col">
-            {/* Top Controls */}
-            <div className="border-b border-gray-100 px-6 py-3.5 bg-gray-50/30 flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Start Date / Time Pill */}
-                <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
-                  <input
-                    type="text"
-                    placeholder="JJ/MM/AAAA"
-                    value={startDateText}
-                    onChange={handleStartDateChange}
-                    className="w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
-                  />
-                  <span className="text-gray-300 font-normal text-xs select-none">|</span>
-                  <input
-                    type="time"
-                    value={startTimeText}
-                    onChange={handleStartTimeChange}
-                    className="w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
-                  />
+          <div
+            ref={popoverRef}
+            className={`
+              fixed inset-x-3 bottom-3 top-auto z-50 max-h-[92vh] overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200
+              md:absolute md:inset-auto md:bottom-auto md:top-full md:mt-2 md:max-h-none md:overflow-visible md:rounded-3xl md:w-auto md:max-w-none
+              ${dropdownAlign === 'right' ? 'md:right-0' : 'md:left-0'}
+            `}
+          >
+            <div className="flex flex-col md:flex-row">
+              {/* Presets Bar: Horizontal scroll on mobile, Vertical sidebar on desktop */}
+              <div className="flex md:w-44 lg:w-48 shrink-0 flex-row overflow-x-auto border-b md:border-b-0 md:border-r border-gray-100 bg-gray-50/70 p-2 md:p-3 lg:p-4 gap-1.5 md:flex-col md:overflow-visible">
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyPreset(p.id)}
+                    className="shrink-0 whitespace-nowrap rounded-lg md:rounded-xl px-2.5 py-1.5 md:px-3 md:py-2 text-xs md:text-sm font-medium text-gray-600 hover:bg-white hover:text-[#3B82F6] hover:shadow-xs transition-all text-left"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Main Calendar Area */}
+              <div className="flex flex-col flex-1 min-w-0">
+                {/* Top Controls & Manual Inputs */}
+                <div className="border-b border-gray-100 bg-gray-50/40 p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Start Date / Time Pill */}
+                    <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-xs focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
+                      <input
+                        type="text"
+                        placeholder="JJ/MM/AAAA"
+                        value={startDateText}
+                        onChange={handleStartDateChange}
+                        className="w-[78px] sm:w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
+                      />
+                      <span className="text-gray-300 font-normal text-xs select-none">|</span>
+                      <input
+                        type="time"
+                        value={startTimeText}
+                        onChange={handleStartTimeChange}
+                        className="w-[58px] sm:w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="hidden sm:block h-px w-2.5 bg-gray-300 shrink-0" />
+
+                    {/* End Date / Time Pill */}
+                    <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2 py-1 sm:px-2.5 sm:py-1.5 shadow-xs focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
+                      <input
+                        type="text"
+                        placeholder="JJ/MM/AAAA"
+                        value={endDateText}
+                        onChange={handleEndDateChange}
+                        className="w-[78px] sm:w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
+                      />
+                      <span className="text-gray-300 font-normal text-xs select-none">|</span>
+                      <input
+                        type="time"
+                        value={endTimeText}
+                        onChange={handleEndTimeChange}
+                        className="w-[58px] sm:w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsOpen(false)}
+                      className="flex-1 sm:flex-none text-center rounded-xl px-3 py-1.5 text-xs sm:text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApply}
+                      className="flex-1 sm:flex-none text-center rounded-xl bg-[#3B82F6] px-4 sm:px-5 py-1.5 text-xs sm:text-sm font-semibold text-white shadow-md shadow-[#3B82F6]/20 hover:bg-[#2563EB] active:scale-95 transition-all"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
                 </div>
 
-                <div className="h-px w-3 bg-gray-300 shrink-0" />
+                {/* Calendar Months Display: 1 Month on Mobile with Prev/Next, 2 Months on md+ */}
+                <div className="flex flex-col md:flex-row gap-6 p-4 sm:p-6 justify-center">
+                  {/* First Month (shown always, with both chevrons on mobile) */}
+                  <div className="relative">
+                    {renderMonth(0, true)}
+                  </div>
 
-                {/* End Date / Time Pill */}
-                <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-sm focus-within:border-[#3B82F6] focus-within:ring-2 focus-within:ring-[#3B82F6]/20 transition-all">
-                  <input
-                    type="text"
-                    placeholder="JJ/MM/AAAA"
-                    value={endDateText}
-                    onChange={handleEndDateChange}
-                    className="w-[82px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent"
-                  />
-                  <span className="text-gray-300 font-normal text-xs select-none">|</span>
-                  <input
-                    type="time"
-                    value={endTimeText}
-                    onChange={handleEndTimeChange}
-                    className="w-[68px] p-0 text-xs sm:text-sm font-semibold text-gray-700 outline-none bg-transparent cursor-pointer"
-                  />
+                  {/* Second Month (shown only on md and larger) */}
+                  <div className="hidden md:block relative">
+                    {renderMonth(1, false)}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-xl px-3.5 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-all"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApply}
-                  className="rounded-xl bg-[#3B82F6] px-5 py-1.5 text-sm font-semibold text-white shadow-md shadow-[#3B82F6]/20 hover:bg-[#2563EB] active:scale-95 transition-all"
-                >
-                  Appliquer
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-8 p-6">
-              {/* Left Calendar */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-                  className="absolute left-0 top-0 p-1 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                {renderMonth(0)}
-              </div>
-
-              {/* Right Calendar */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-                  className="absolute right-0 top-0 p-1 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-                {renderMonth(1)}
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
