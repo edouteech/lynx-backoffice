@@ -7,6 +7,7 @@ import {
   UserCog,
   ShieldCheck,
   Activity,
+  Terminal,
 } from 'lucide-react'
 
 const nav = [
@@ -21,6 +22,7 @@ const nav = [
   { path: 'owners', label: 'Propriétaires', icon: UserCog },
   { path: 'users', label: 'Utilisateurs', icon: Users },
   { path: 'audit-logs', label: 'Logs POS', icon: Activity },
+  { path: 'system-logs', label: 'Logs Système', icon: Terminal },
 ] as const
 
 export default function AdminSidebar({ collapsed = false }: { collapsed?: boolean }) {

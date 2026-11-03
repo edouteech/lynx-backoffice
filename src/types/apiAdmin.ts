@@ -190,3 +190,21 @@ export type ApiPosLogStats = {
   errors_last_24h: number
   warnings_last_24h: number
 }
+
+
+export type ApiSystemLog = {
+  id: string
+  timestamp: string
+  environment: string
+  level: string
+  message: string
+  stack_trace?: string | null
+}
+
+export type ApiSystemLogStats = {
+  total: number
+  errors: number
+  warnings: number
+  info: number
+  file_size: string
+}
