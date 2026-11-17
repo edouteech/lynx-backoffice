@@ -16,6 +16,7 @@ import SubscriptionsPage from './pages/subscriptions/SubscriptionsPage'
 import SubscriptionDetailPage from './pages/subscriptions/SubscriptionDetailPage'
 import AuditLogsPage from './pages/audit-logs/AuditLogsPage'
 import SystemLogsPage from './pages/system-logs/SystemLogsPage'
+import RequestLogsPage from './pages/request-logs/RequestLogsPage'
 
 function withLayout(page: ReactElement) {
   return <AdminLayout>{page}</AdminLayout>
@@ -113,6 +114,12 @@ export default function App() {
             path="/system-logs"
             element={
               <ProtectedRoute>{withLayout(<SystemLogsPage />)}</ProtectedRoute>
+            }
+          />
+          <Route
+            path="/request-logs"
+            element={
+              <ProtectedRoute>{withLayout(<RequestLogsPage />)}</ProtectedRoute>
             }
           />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
