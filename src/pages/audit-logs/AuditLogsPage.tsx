@@ -21,6 +21,7 @@ import AdminModal from '../../components/AdminModal'
 import DataTable, { type Action, type Column } from '../../components/DataTable'
 import { DateRangePicker } from '../../components/DateRangePicker'
 import { apiFetch } from '../../lib/api'
+import { posLogActionInfo } from '../../lib/posLogActions'
 import type {
   ApiOrganization,
   ApiPosLog,
@@ -55,7 +56,9 @@ const LOG_CATEGORIES = [
   { value: 'shift', label: 'Sessions de caisse' },
   { value: 'cart', label: 'Panier & Remises' },
   { value: 'auth', label: 'Connexion & PIN' },
-  { value: 'refund', label: 'Remboursements & Rachats' },
+  { value: 'refund', label: 'Remboursements & Avoirs' },
+  { value: 'buyback', label: 'Rachats clients' },
+  { value: 'order', label: 'Commandes en attente' },
   { value: 'journal', label: 'Journal & Annulations' },
   { value: 'fiscal', label: 'Fiscalité DGI' },
   { value: 'sync', label: 'Synchronisation' },
@@ -230,12 +233,19 @@ export default function AuditLogsPage() {
       ? (organizations.find((o) => String(o.id) === selectedOrgId)?.name ?? `Org #${selectedOrgId}`)
       : 'Toutes les organisations'
 
+    const isTotalPurge = formValues.days === '0'
+
     const secondConfirm = await Swal.fire({
-      title: 'Confirmation définitive requise',
+      title: isTotalPurge ? 'Supprimer TOUS les logs ?' : 'Confirmation définitive requise',
       html: `
         <div style="text-align: left; font-size: 14px; line-height: 1.6; color: #374151;">
           <p style="margin-bottom: 12px; font-weight: 600; color: #b91c1c;">
             ⚠️ Attention : Cette action est irréversible et supprimera définitivement les données de télémétrie sélectionnées.
+          </p>
+          <p style="margin-bottom: 12px; padding: 10px; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; font-size: 13px;">
+            Cette purge supprime <strong>aussi les logs d'audit</strong> (encaissements et ventes, sessions de caisse, remboursements),
+            que le nettoyage automatique conserve <strong>3 ans</strong>. Pour un simple allègement, laissez le nettoyage automatique
+            supprimer les anciens logs.
           </p>
           <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
             <ul style="margin: 0; padding-left: 20px; list-style-type: disc;">
@@ -251,8 +261,18 @@ export default function AuditLogsPage() {
       showCancelButton: true,
       confirmButtonColor: '#dc2626',
       cancelButtonColor: '#64748b',
-      confirmButtonText: 'Oui, purger définitivement',
+      confirmButtonText: isTotalPurge ? 'Supprimer tous les logs' : 'Oui, purger définitivement',
       cancelButtonText: 'Annuler',
+      // Purge totale : il faut taper le mot pour confirmer, un simple clic ne suffit pas.
+      ...(isTotalPurge
+        ? {
+            input: 'text' as const,
+            inputLabel: 'Pour confirmer, tapez SUPPRIMER en majuscules',
+            inputPlaceholder: 'SUPPRIMER',
+            inputValidator: (value: string) =>
+              value.trim() === 'SUPPRIMER' ? undefined : 'Tapez exactement SUPPRIMER pour confirmer.',
+          }
+        : {}),
     })
 
     if (!secondConfirm.isConfirmed) return
@@ -438,7 +458,12 @@ export default function AuditLogsPage() {
               <span className="inline-block rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
                 {cat?.label ?? log.category}
               </span>
-              <div className="mt-1 font-mono text-xs font-semibold text-gray-900">
+              {posLogActionInfo(log.action) && (
+                <div className="mt-1 text-sm font-semibold text-gray-900">
+                  {posLogActionInfo(log.action)?.label}
+                </div>
+              )}
+              <div className={`font-mono text-xs ${posLogActionInfo(log.action) ? 'text-gray-400' : 'mt-1 font-semibold text-gray-900'}`}>
                 {log.action}
               </div>
             </div>
@@ -746,6 +771,17 @@ export default function AuditLogsPage() {
                 <p className="text-[11px] font-mono text-gray-400 mt-0.5">
                   code: {inspectLog.category}
                 </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-gray-500">Action</p>
+                <p className="font-semibold text-gray-900 mt-1">
+                  {posLogActionInfo(inspectLog.action)?.label ?? inspectLog.action}
+                </p>
+                <p className="text-[11px] font-mono text-gray-400 mt-0.5">code: {inspectLog.action}</p>
+                {posLogActionInfo(inspectLog.action)?.description && (
+                  <p className="text-[11px] text-gray-500 mt-1">{posLogActionInfo(inspectLog.action)?.description}</p>
+                )}
               </div>
 
               <div>
