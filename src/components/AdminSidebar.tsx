@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Activity,
   Terminal,
+  ServerCrash,
   ScrollText,
   ChevronDown,
   ChevronRight,
@@ -43,6 +44,7 @@ const nav: NavItem[] = [
     children: [
       { path: 'audit-logs', label: 'Logs POS', icon: Activity },
       { path: 'system-logs', label: 'Logs Système', icon: Terminal },
+      { path: 'request-logs', label: 'Journal des requêtes', icon: ServerCrash },
     ],
   },
 ]
@@ -56,7 +58,9 @@ export default function AdminSidebar({ collapsed = false }: { collapsed?: boolea
     active === 'audit-logs' ||
     active.startsWith('audit-logs/') ||
     active === 'system-logs' ||
-    active.startsWith('system-logs/')
+    active.startsWith('system-logs/') ||
+    active === 'request-logs' ||
+    active.startsWith('request-logs/')
 
   const [logsOpen, setLogsOpen] = useState(isLogsActive)
 

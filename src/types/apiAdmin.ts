@@ -208,3 +208,67 @@ export type ApiSystemLogStats = {
   info: number
   file_size: string
 }
+
+/** Journal des requêtes de l'API (table api_request_logs, écrite par le serveur). */
+export type ApiRequestLog = {
+  id: number
+  request_id: string | null
+  organization_id: number | null
+  organization?: { id: number; name: string } | null
+  store?: { id: number; name: string } | null
+  cash_register?: { id: number; name: string } | null
+  user_id: number | null
+  user_name: string | null
+  user_email: string | null
+  token_id: number | null
+  store_id: number | null
+  cash_register_id: number | null
+  method: string
+  endpoint: string
+  route_name: string | null
+  action: string | null
+  ip_address: string | null
+  user_agent?: string | null
+  client_type: string | null
+  app_version: string | null
+  platform: string | null
+  status_code: number
+  error_message: string | null
+  exception_class: string | null
+  exception_location: string | null
+  stack_trace?: string | null
+  request_payload?: Record<string, unknown> | null
+  response_payload?: Record<string, unknown> | null
+  duration_ms: number | null
+  fingerprint: string | null
+  created_at: string
+}
+
+export type ApiRequestLogDetail = {
+  data: ApiRequestLog
+  same_error: { count: number; first_seen: string | null; last_seen: string | null } | null
+}
+
+export type ApiRequestLogStats = {
+  period_hours: number
+  total_rows: number
+  in_period: number
+  client_errors: number
+  server_errors: number
+  by_status: Record<string, number>
+  by_client: Record<string, number>
+  top_errors: {
+    fingerprint: string
+    occurrences: number
+    last_seen: string
+    sample: {
+      id: number
+      method: string
+      endpoint: string
+      action: string | null
+      status_code: number
+      error_message: string | null
+      exception_class: string | null
+    } | null
+  }[]
+}
